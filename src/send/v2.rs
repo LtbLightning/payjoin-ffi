@@ -1,7 +1,8 @@
 use std::io::Cursor;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::error::PayjoinError;
+use crate::transaction::PartiallySignedTransaction;
 
 pub struct ContextV2(Mutex<Option<payjoin::send::ContextV2>>);
 impl From<&ContextV2> for payjoin::send::ContextV2 {
@@ -19,12 +20,15 @@ impl ContextV2 {
     ///Decodes and validates the response.
     /// Call this method with response from receiver to continue BIP-??? flow. A successful response can either be None if the relay has not response yet or Some(Psbt).
     /// If the response is some valid PSBT you should sign and broadcast.
-    pub fn process_response(&self, response: Vec<u8>) -> Result<Option<String>, PayjoinError> {
+    pub fn process_response(
+        &self,
+        response: Vec<u8>,
+    ) -> Result<Option<Arc<PartiallySignedTransaction>>, PayjoinError> {
         let mut decoder = Cursor::new(response);
         match <&ContextV2 as Into<payjoin::send::ContextV2>>::into(self)
             .process_response(&mut decoder)
         {
-            Ok(e) => Ok(e.map(|x| x.to_string())),
+            Ok(e) => Ok(e.map(|x| Arc::new(x.into()))),
             Err(e) => Err(e.into()),
         }
     }
