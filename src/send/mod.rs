@@ -1,14 +1,14 @@
 pub mod v2;
 
 use std::io::Cursor;
+use std::str::FromStr;
 use std::sync::Arc;
 
 pub use payjoin::send::RequestBuilder as PdkRequestBuilder;
 
 use crate::error::PayjoinError;
 use crate::send::v2::ContextV2;
-use crate::transaction::PartiallySignedTransaction;
-use crate::types::{Amount, FeeRate, Request};
+use crate::types::Request;
 use crate::uri::Uri;
 
 ///Builder for sender-side payjoin parameters
@@ -29,11 +29,9 @@ impl RequestBuilder {
     /// An HTTP client will own the Request data while Context sticks around so
     /// a `(Request, Context)` tuple is returned from `RequestBuilder::build()`
     /// to keep them separated.
-    pub fn from_psbt_and_uri(
-        psbt: Arc<PartiallySignedTransaction>,
-        uri: Arc<Uri>,
-    ) -> Result<Self, PayjoinError> {
-        match PdkRequestBuilder::from_psbt_and_uri((*psbt).clone().into(), (*uri).clone().into()) {
+    pub fn from_psbt_and_uri(psbt: String, uri: Arc<Uri>) -> Result<Self, PayjoinError> {
+        let psbt = payjoin::bitcoin::psbt::PartiallySignedTransaction::from_str(psbt.as_str())?;
+        match PdkRequestBuilder::from_psbt_and_uri(psbt, (*uri).clone().into()) {
             Ok(e) => Ok(e.into()),
             Err(e) => Err(e.into()),
         }
@@ -56,9 +54,13 @@ impl RequestBuilder {
     // This method fails if no recommendation can be made or if the PSBT is malformed.
     pub fn build_recommended(
         &self,
-        min_fee_rate: Arc<FeeRate>,
+        min_fee_rate: u64,
     ) -> Result<Arc<RequestContext>, PayjoinError> {
-        match self.0.clone().build_recommended((*min_fee_rate).into()) {
+        match self
+            .0
+            .clone()
+            .build_recommended(payjoin::bitcoin::FeeRate::from_sat_per_kwu(min_fee_rate))
+        {
             Ok(e) => Ok(Arc::new(e.into())),
             Err(e) => Err(e.into()),
         }
@@ -78,15 +80,15 @@ impl RequestBuilder {
     /// be just lowered in the request to match the change amount.
     pub fn build_with_additional_fee(
         &self,
-        max_fee_contribution: Arc<Amount>,
+        max_fee_contribution: u64,
         change_index: Option<u8>,
-        min_fee_rate: Arc<FeeRate>,
+        min_fee_rate: u64,
         clamp_fee_contribution: bool,
     ) -> Result<Arc<RequestContext>, PayjoinError> {
         match self.0.clone().build_with_additional_fee(
-            (*max_fee_contribution).clone().into(),
+            payjoin::bitcoin::Amount::from_sat(max_fee_contribution),
             change_index.map(|x| x as usize),
-            (*min_fee_rate).into(),
+            payjoin::bitcoin::FeeRate::from_sat_per_kwu(min_fee_rate),
             clamp_fee_contribution,
         ) {
             Ok(e) => Ok(Arc::new(e.into())),
@@ -158,13 +160,10 @@ impl From<payjoin::send::ContextV1> for ContextV1 {
 impl ContextV1 {
     ///Decodes and validates the response.
     /// Call this method with response from receiver to continue BIP78 flow. If the response is valid you will get appropriate PSBT that you should sign and broadcast.
-    pub fn process_response(
-        &self,
-        response: Vec<u8>,
-    ) -> Result<Arc<PartiallySignedTransaction>, PayjoinError> {
+    pub fn process_response(&self, response: Vec<u8>) -> Result<String, PayjoinError> {
         let mut decoder = Cursor::new(response);
         match self.0.clone().process_response(&mut decoder) {
-            Ok(e) => Ok(Arc::new(e.into())),
+            Ok(e) => Ok(e.to_string()),
             Err(e) => Err(e.into()),
         }
     }
