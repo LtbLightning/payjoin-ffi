@@ -13,7 +13,7 @@ use crate::receive::{
 	MaybeMixedInputScripts, OutputsUnknown, PayjoinProposal, ProcessPartiallySignedTransaction,
 	ProvisionalProposal, UncheckedProposal,
 };
-use crate::send::{RequestBuilder, Context, Request};
+use crate::send::{Context, Request, RequestBuilder};
 
 use crate::transaction::{PartiallySignedTransaction, Transaction, Txid};
 use crate::uri::{Amount, PjUri, PrjUriRequest, Uri, Url};
