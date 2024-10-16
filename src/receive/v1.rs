@@ -7,7 +7,7 @@ use payjoin::bitcoin::FeeRate;
 use payjoin::receive as pdk;
 
 use crate::error::PayjoinError;
-use crate::types::{OutPoint, TxOut};
+use crate::types::{OutPoint, Script, TxOut};
 
 pub trait CanBroadcast {
     fn callback(&self, tx: Vec<u8>) -> Result<bool, PayjoinError>;
@@ -280,7 +280,7 @@ impl OutputsUnknown {
     pub fn identify_receiver_outputs(
         &self,
         is_receiver_output: impl Fn(&Vec<u8>) -> Result<bool, PayjoinError>,
-    ) -> Result<ProvisionalProposal, PayjoinError> {
+    ) -> Result<WantsOutputs, PayjoinError> {
         self.0
             .clone()
             .identify_receiver_outputs(|input| {
@@ -289,6 +289,50 @@ impl OutputsUnknown {
             })
             .map_err(|e| e.into())
             .map(|e| e.into())
+    }
+}
+
+pub struct WantsOutputs(payjoin::receive::WantsOutputs);
+
+impl From<payjoin::receive::WantsOutputs> for WantsOutputs {
+    fn from(value: payjoin::receive::WantsOutputs) -> Self {
+        Self(value)
+    }
+}
+impl WantsOutputs {
+    pub fn replace_receiver_outputs(
+        &self,
+        replacement_outputs: Vec<TxOut>,
+        drain_script: &Script,
+    ) -> Result<WantsOutputs, PayjoinError> {
+        self.0
+            .clone()
+            .replace_receiver_outputs(replacement_outputs.into(), drain_script.clone().into())
+    }
+
+    pub fn commit_outputs(&self) -> Result<WantsInputs, PayjoinError> {
+        self.0.clone().commit_outputs().map_err(|e| e.into())
+    }
+}
+
+pub struct WantsInputs(payjoin::receive::WantsInputs);
+
+impl From<payjoin::receive::WantsInputs> for WantsInputs {
+    fn from(value: payjoin::receive::WantsInputs) -> Self {
+        Self(value)
+    }
+}
+
+impl WantsInputs {
+    pub fn contribute_witness_inputs(
+        &self,
+        replacement_inputs: Vec<(OutPoint, TxOut)>,
+    ) -> Result<WantsInputs, PayjoinError> {
+        self.0.clone().replace_receiver_inputs(replacement_inputs.into())
+    }
+
+    pub fn commit_inputs(&self) -> Result<ProvisionalProposal, PayjoinError> {
+        self.0.clone().commit_inputs().map_err(|e| e.into())
     }
 }
 
@@ -370,6 +414,7 @@ impl ProvisionalProposal {
         &self,
         process_psbt: Box<dyn ProcessPartiallySignedTransaction>,
         min_feerate_sat_per_vb: Option<u64>,
+        max_feerate_sat_per_vb: u64,
     ) -> Result<Arc<PayjoinProposal>, PayjoinError> {
         self.mutex_guard()
             .clone()
@@ -381,6 +426,7 @@ impl ProvisionalProposal {
                         .map_err(|e| pdk::Error::Server(Box::new(e)))
                 },
                 min_feerate_sat_per_vb.and_then(|x| FeeRate::from_sat_per_vb(x)),
+                FeeRate::from_sat_per_vb(max_feerate_sat_per_vb),
             )
             .map(|e| Arc::new(e.into()))
             .map_err(|e| e.into())
@@ -390,6 +436,7 @@ impl ProvisionalProposal {
         &self,
         process_psbt: impl Fn(String) -> Result<String, PayjoinError>,
         min_feerate_sat_per_vb: Option<u64>,
+        max_feerate_sat_per_vb: u64,
     ) -> Result<Arc<PayjoinProposal>, PayjoinError> {
         self.mutex_guard()
             .clone()
@@ -400,6 +447,7 @@ impl ProvisionalProposal {
                         .map_err(|e| pdk::Error::Server(Box::new(e)))
                 },
                 min_feerate_sat_per_vb.and_then(|x| FeeRate::from_sat_per_vb(x)),
+                FeeRate::from_sat_per_vb(max_feerate_sat_per_vb),
             )
             .map(|e| Arc::new(e.into()))
             .map_err(|e| e.into())

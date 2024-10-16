@@ -8,27 +8,14 @@ use payjoin::bitcoin::psbt::Psbt;
 use payjoin::bitcoin::FeeRate;
 use payjoin::receive as pdk;
 
+use crate::ohttp::ClientResponse;
 #[cfg(feature = "uniffi")]
 use crate::receive::v1::{
     CanBroadcast, GenerateScript, IsOutputKnown, IsScriptOwned, ProcessPartiallySignedTransaction,
 };
-use crate::types::Network;
+use crate::types::{Network, Script};
 use crate::uri::PjUriBuilder;
 use crate::{OhttpKeys, OutPoint, PayjoinError, Request, TxOut, Url};
-
-pub struct ClientResponse(Mutex<Option<ohttp::ClientResponse>>);
-
-impl From<&ClientResponse> for ohttp::ClientResponse {
-    fn from(value: &ClientResponse) -> Self {
-        let mut data_guard = value.0.lock().unwrap();
-        Option::take(&mut *data_guard).expect("ClientResponse moved out of memory")
-    }
-}
-impl From<ohttp::ClientResponse> for ClientResponse {
-    fn from(value: ohttp::ClientResponse) -> Self {
-        Self(Mutex::new(Some(value)))
-    }
-}
 
 pub struct RequestResponse {
     pub request: Request,
@@ -36,24 +23,25 @@ pub struct RequestResponse {
 }
 
 #[derive(Clone, Debug)]
-pub struct SessionInitializer(pub payjoin::receive::v2::SessionInitializer);
-impl From<SessionInitializer> for payjoin::receive::v2::SessionInitializer {
-    fn from(value: SessionInitializer) -> Self {
+pub struct Receiver(pub payjoin::receive::v2::Receiver);
+impl From<Receiver> for payjoin::receive::v2::Receiver {
+    fn from(value: Receiver) -> Self {
         value.0
     }
 }
 
-impl From<payjoin::receive::v2::SessionInitializer> for SessionInitializer {
-    fn from(value: payjoin::receive::v2::SessionInitializer) -> Self {
+impl From<payjoin::receive::v2::Receiver> for Receiver {
+    fn from(value: payjoin::receive::v2::Receiver) -> Self {
         Self(value)
     }
 }
 
-impl SessionInitializer {
+impl Receiver {
     /// Creates a new `SessionInitializer` with the provided parameters.
     ///
     /// # Parameters
     /// - `address`: The Bitcoin address for the payjoin session.
+    /// - `network`: The network to use for address verification.
     /// - `directory`: The URL of the store-and-forward payjoin directory.
     /// - `ohttp_keys`: The OHTTP keys used for encrypting and decrypting HTTP requests and responses.
     /// - `ohttp_relay`: The URL of the OHTTP relay, used to keep client IP address confidential.
@@ -67,15 +55,15 @@ impl SessionInitializer {
     #[cfg(feature = "uniffi")]
     pub fn new(
         address: String,
-        expire_after: Option<u64>,
         network: Network,
         directory: Arc<Url>,
         ohttp_keys: Arc<OhttpKeys>,
         ohttp_relay: Arc<Url>,
+        expire_after: Option<u64>,
     ) -> Result<Self, PayjoinError> {
         let address = payjoin::bitcoin::Address::from_str(address.as_str())?
             .require_network(network.into())?;
-        Ok(payjoin::receive::v2::SessionInitializer::new(
+        Ok(payjoin::receive::v2::Receiver::new(
             address,
             (*directory).clone().into(),
             (*ohttp_keys).clone().into(),
@@ -87,15 +75,15 @@ impl SessionInitializer {
     #[cfg(not(feature = "uniffi"))]
     pub fn new(
         address: String,
-        expire_after: Option<u64>,
         network: Network,
         directory: Url,
         ohttp_keys: OhttpKeys,
         ohttp_relay: Url,
+        expire_after: Option<u64>,
     ) -> Result<Self, PayjoinError> {
         let address = payjoin::bitcoin::Address::from_str(address.as_str())?
             .require_network(network.into())?;
-        Ok(payjoin::receive::v2::SessionInitializer::new(
+        Ok(payjoin::receive::v2::Receiver::new(
             address,
             directory.into(),
             ohttp_keys.into(),
@@ -121,61 +109,7 @@ impl SessionInitializer {
             Err(e) => Err(PayjoinError::V2Error { message: e.to_string() }),
         }
     }
-    #[cfg(not(feature = "uniffi"))]
-    pub fn process_res(
-        &self,
-        body: Vec<u8>,
-        ctx: ohttp::ClientResponse,
-    ) -> Result<ActiveSession, PayjoinError> {
-        <SessionInitializer as Into<payjoin::receive::v2::SessionInitializer>>::into(self.clone())
-            .process_res(Cursor::new(body), ctx)
-            .map(|e| e.into())
-            .map_err(|e| e.into())
-    }
-    #[cfg(feature = "uniffi")]
-    pub fn process_res(
-        &self,
-        body: Vec<u8>,
-        ctx: Arc<ClientResponse>,
-    ) -> Result<Arc<ActiveSession>, PayjoinError> {
-        <SessionInitializer as Into<payjoin::receive::v2::SessionInitializer>>::into(self.clone())
-            .process_res(Cursor::new(body), ctx.as_ref().into())
-            .map(|e| Arc::new(e.into()))
-            .map_err(|e| e.into())
-    }
-}
-#[derive(Clone, Debug)]
-pub struct ActiveSession(payjoin::receive::v2::ActiveSession);
 
-impl From<ActiveSession> for payjoin::receive::v2::ActiveSession {
-    fn from(value: ActiveSession) -> Self {
-        value.0
-    }
-}
-
-impl From<payjoin::receive::v2::ActiveSession> for ActiveSession {
-    fn from(value: payjoin::receive::v2::ActiveSession) -> Self {
-        Self(value)
-    }
-}
-impl ActiveSession {
-    #[cfg(feature = "uniffi")]
-    pub fn extract_req(&self) -> Result<RequestResponse, PayjoinError> {
-        match self.0.clone().extract_req() {
-            Ok(e) => {
-                Ok(RequestResponse { request: e.0.into(), client_response: Arc::new(e.1.into()) })
-            }
-            Err(e) => Err(PayjoinError::V2Error { message: e.to_string() }),
-        }
-    }
-
-    #[cfg(not(feature = "uniffi"))]
-    pub fn extract_req(&self) -> Result<(Request, ohttp::ClientResponse), PayjoinError> {
-        match self.0.clone().extract_req() {
-            Ok(e) => Ok((e.0.into(), e.1)),
-            Err(e) => Err(PayjoinError::V2Error { message: e.to_string() }),
-        }
-    }
     ///The response can either be an UncheckedProposal or an ACCEPTED message indicating no UncheckedProposal is available yet.
     #[cfg(feature = "uniffi")]
     pub fn process_res(
@@ -183,7 +117,7 @@ impl ActiveSession {
         body: Vec<u8>,
         context: Arc<ClientResponse>,
     ) -> Result<Option<Arc<V2UncheckedProposal>>, PayjoinError> {
-        <ActiveSession as Into<payjoin::receive::v2::ActiveSession>>::into(self.clone())
+        <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone())
             .process_res(Cursor::new(body), context.as_ref().into())
             .map(|e| e.map(|x| Arc::new(x.into())))
             .map_err(|e| e.into())
@@ -195,21 +129,20 @@ impl ActiveSession {
         body: Vec<u8>,
         ctx: ohttp::ClientResponse,
     ) -> Result<Option<V2UncheckedProposal>, PayjoinError> {
-        <ActiveSession as Into<payjoin::receive::v2::ActiveSession>>::into(self.clone())
+        <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone())
             .process_res(Cursor::new(body), ctx)
             .map(|e| e.map(|o| o.into()))
             .map_err(|e| e.into())
     }
+
     #[cfg(not(feature = "uniffi"))]
     pub fn pj_uri_builder(&self) -> PjUriBuilder {
-        <ActiveSession as Into<payjoin::receive::v2::ActiveSession>>::into(self.clone())
-            .pj_uri_builder()
-            .into()
+        <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone()).pj_uri_builder().into()
     }
     #[cfg(feature = "uniffi")]
     pub fn pj_uri_builder(&self) -> Arc<PjUriBuilder> {
         Arc::new(
-            <ActiveSession as Into<payjoin::receive::v2::ActiveSession>>::into(self.clone())
+            <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone())
                 .pj_uri_builder()
                 .into(),
         )
@@ -218,23 +151,15 @@ impl ActiveSession {
     /// This identifies a session at the payjoin directory server.
     #[cfg(feature = "uniffi")]
     pub fn pj_url(&self) -> Arc<Url> {
-        Arc::new(
-            <ActiveSession as Into<payjoin::receive::v2::ActiveSession>>::into(self.clone())
-                .pj_url()
-                .into(),
-        )
+        Arc::new(<Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone()).pj_url().into())
     }
     #[cfg(not(feature = "uniffi"))]
     pub fn pj_url(&self) -> Url {
-        <ActiveSession as Into<payjoin::receive::v2::ActiveSession>>::into(self.clone())
-            .pj_url()
-            .into()
+        <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone()).pj_url().into()
     }
     ///The per-session public key to use as an identifier
-    pub fn public_key(&self) -> String {
-        <ActiveSession as Into<payjoin::receive::v2::ActiveSession>>::into(self.clone())
-            .public_key()
-            .to_string()
+    pub fn id(&self) -> String {
+        <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone()).id().to_string()
     }
 }
 
@@ -470,6 +395,50 @@ impl V2OutputsUnknown {
     }
 }
 
+pub struct V2WantsOutputs(payjoin::receive::v2::WantsOutputs);
+
+impl From<payjoin::receive::v2::WantsOutputs> for V2WantsOutputs {
+    fn from(value: payjoin::receive::v2::WantsOutputs) -> Self {
+        Self(value)
+    }
+}
+impl V2WantsOutputs {
+    pub fn replace_receiver_outputs(
+        &self,
+        replacement_outputs: Vec<TxOut>,
+        drain_script: &Script,
+    ) -> Result<V2WantsOutputs, PayjoinError> {
+        self.0
+            .clone()
+            .replace_receiver_outputs(replacement_outputs.into(), drain_script.clone().into())
+    }
+
+    pub fn commit_outputs(&self) -> Result<V2WantsInputs, PayjoinError> {
+        self.0.clone().commit_outputs().map_err(|e| e.into())
+    }
+}
+
+pub struct V2WantsInputs(payjoin::receive::v2::WantsInputs);
+
+impl From<payjoin::receive::v2::WantsInputs> for V2WantsInputs {
+    fn from(value: payjoin::receive::v2::WantsInputs) -> Self {
+        Self(value)
+    }
+}
+
+impl V2WantsInputs {
+    pub fn contribute_witness_inputs(
+        &self,
+        replacement_inputs: Vec<(OutPoint, TxOut)>,
+    ) -> Result<V2WantsInputs, PayjoinError> {
+        self.0.clone().replace_receiver_inputs(replacement_inputs.into())
+    }
+
+    pub fn commit_inputs(&self) -> Result<V2ProvisionalProposal, PayjoinError> {
+        self.0.clone().commit_inputs().map_err(|e| e.into())
+    }
+}
+
 pub struct V2ProvisionalProposal(pub Mutex<payjoin::receive::v2::ProvisionalProposal>);
 
 impl From<payjoin::receive::v2::ProvisionalProposal> for V2ProvisionalProposal {
@@ -556,6 +525,7 @@ impl V2ProvisionalProposal {
         &self,
         process_psbt: Box<dyn ProcessPartiallySignedTransaction>,
         min_feerate_sat_per_vb: Option<u64>,
+        max_fee_rate_sat_per_vb: u64,
     ) -> Result<Arc<V2PayjoinProposal>, PayjoinError> {
         self.mutex_guard()
             .clone()
@@ -571,6 +541,7 @@ impl V2ProvisionalProposal {
                     }
                 },
                 min_feerate_sat_per_vb.and_then(|x| FeeRate::from_sat_per_vb(x)),
+                FeeRate::from_sat_per_vb(max_fee_rate_sat_per_vb),
             )
             .map(|e| Arc::new(e.into()))
             .map_err(|e| e.into())
@@ -580,6 +551,7 @@ impl V2ProvisionalProposal {
         &self,
         process_psbt: impl Fn(String) -> Result<String, PayjoinError>,
         min_feerate_sat_per_vb: Option<u64>,
+        max_feerate_sat_per_vb: u64,
     ) -> Result<Arc<V2PayjoinProposal>, PayjoinError> {
         self.mutex_guard()
             .clone()
@@ -594,6 +566,7 @@ impl V2ProvisionalProposal {
                     }
                 },
                 min_feerate_sat_per_vb.and_then(|x| FeeRate::from_sat_per_vb(x)),
+                FeeRate::from_sat_per_vb(max_feerate_sat_per_vb),
             )
             .map(|e| Arc::new(e.into()))
             .map_err(|e| e.into())

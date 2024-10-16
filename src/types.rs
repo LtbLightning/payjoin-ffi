@@ -64,6 +64,15 @@ impl From<TxOut> for payjoin::bitcoin::TxOut {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Script(pub payjoin::bitcoin::ScriptBuf);
+
+impl From<payjoin::bitcoin::ScriptBuf> for Script {
+    fn from(value: payjoin::bitcoin::ScriptBuf) -> Self {
+        Self(value)
+    }
+}
+
 impl From<payjoin::bitcoin::TxOut> for TxOut {
     fn from(tx_out: payjoin::bitcoin::TxOut) -> Self {
         TxOut { value: tx_out.value.to_sat(), script_pubkey: tx_out.script_pubkey.to_bytes() }

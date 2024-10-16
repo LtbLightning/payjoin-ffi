@@ -5,7 +5,7 @@ use std::sync::Arc;
 pub use payjoin::send as pdk;
 
 use crate::error::PayjoinError;
-use crate::send::v2::ContextV2;
+use crate::send::Context;
 use crate::types::Request;
 use crate::uri::{PjUri, Url};
 
@@ -13,20 +13,20 @@ use crate::uri::{PjUri, Url};
 ///
 ///These parameters define how client wants to handle Payjoin.
 #[derive(Clone)]
-pub struct RequestBuilder(pdk::RequestBuilder<'static>);
+pub struct SenderBuilder(pdk::SenderBuilder<'static>);
 
-impl From<pdk::RequestBuilder<'static>> for RequestBuilder {
-    fn from(value: pdk::RequestBuilder<'static>) -> Self {
+impl From<pdk::SenderBuilder<'static>> for SenderBuilder {
+    fn from(value: pdk::SenderBuilder<'static>) -> Self {
         Self(value)
     }
 }
 
-impl RequestBuilder {
+impl SenderBuilder {
     //TODO: Replicate all functions like this & remove duplicate code
     /// Prepare an HTTP request and request context to process the response
     ///
     /// An HTTP client will own the Request data while Context sticks around so
-    /// a `(Request, Context)` tuple is returned from `RequestBuilder::build()`
+    /// a `(Request, Context)` tuple is returned from `SenderBuilder::build()`
     /// to keep them separated.
     pub fn from_psbt_and_uri(
         psbt: String,
@@ -36,7 +36,7 @@ impl RequestBuilder {
         let psbt = payjoin::bitcoin::psbt::Psbt::from_str(psbt.as_str())?;
         #[cfg(feature = "uniffi")]
         let uri: PjUri = (*uri).clone();
-        pdk::RequestBuilder::from_psbt_and_uri(psbt, uri.into())
+        pdk::SenderBuilder::from_psbt_and_uri(psbt, uri.into())
             .map(|e| e.into())
             .map_err(|e| e.into())
     }
@@ -56,10 +56,7 @@ impl RequestBuilder {
     // The minfeerate parameter is set if the contribution is available in change.
     //
     // This method fails if no recommendation can be made or if the PSBT is malformed.
-    pub fn build_recommended(
-        &self,
-        min_fee_rate: u64,
-    ) -> Result<Arc<RequestContext>, PayjoinError> {
+    pub fn build_recommended(&self, min_fee_rate: u64) -> Result<Arc<Sender>, PayjoinError> {
         self.0
             .clone()
             .build_recommended(payjoin::bitcoin::FeeRate::from_sat_per_kwu(min_fee_rate))
@@ -85,7 +82,7 @@ impl RequestBuilder {
         change_index: Option<u8>,
         min_fee_rate: u64,
         clamp_fee_contribution: bool,
-    ) -> Result<Arc<RequestContext>, PayjoinError> {
+    ) -> Result<Arc<Sender>, PayjoinError> {
         self.0
             .clone()
             .build_with_additional_fee(
@@ -101,10 +98,7 @@ impl RequestBuilder {
     ///
     /// While it's generally better to offer some contribution some users may wish not to.
     /// This function disables contribution.
-    pub fn build_non_incentivizing(
-        &self,
-        min_fee_rate: u64,
-    ) -> Result<Arc<RequestContext>, PayjoinError> {
+    pub fn build_non_incentivizing(&self, min_fee_rate: u64) -> Result<Arc<Sender>, PayjoinError> {
         match self
             .0
             .clone()
@@ -116,58 +110,48 @@ impl RequestBuilder {
     }
 }
 #[derive(Clone)]
-pub struct RequestContext(payjoin::send::RequestContext);
+pub struct Sender(payjoin::send::Sender);
 
-impl From<payjoin::send::RequestContext> for RequestContext {
-    fn from(value: payjoin::send::RequestContext) -> Self {
-        RequestContext(value)
+impl From<payjoin::send::Sender> for Sender {
+    fn from(value: payjoin::send::Sender) -> Self {
+        Self(value)
     }
 }
 
 #[derive(Clone)]
-pub struct RequestContextV1 {
+pub struct RequestContext {
     pub request: Request,
-    pub context_v1: Arc<ContextV1>,
+    pub context: Arc<Context>,
 }
 
-#[derive(Clone)]
-pub struct RequestContextV2 {
-    pub request: Request,
-    pub context_v2: Arc<ContextV2>,
-}
-
-impl RequestContext {
-    /// Extract serialized V1 Request and Context from a Payjoin Proposal
-    pub fn extract_v1(&self) -> Result<RequestContextV1, PayjoinError> {
-        match self.0.clone().extract_v1() {
-            Ok(e) => Ok(RequestContextV1 { request: e.0.into(), context_v1: Arc::new(e.1.into()) }),
-            Err(e) => Err(e.into()),
-        }
-    }
+impl Sender {
     /// Extract serialized Request and Context from a Payjoin Proposal.
     ///
     /// In order to support polling, this may need to be called many times to be encrypted with
     /// new unique nonces to make independent OHTTP requests.
     ///
     /// The `ohttp_proxy` merely passes the encrypted payload to the ohttp gateway of the receiver
-    pub fn extract_v2(&self, ohttp_proxy_url: Arc<Url>) -> Result<RequestContextV2, PayjoinError> {
-        match self.0.clone().extract_v2((*ohttp_proxy_url).clone().into()) {
-            Ok(e) => Ok(RequestContextV2 { request: e.0.into(), context_v2: Arc::new(e.1.into()) }),
+    pub fn extract_highest_version(
+        &self,
+        ohttp_proxy_url: Arc<Url>,
+    ) -> Result<RequestContext, PayjoinError> {
+        match self.0.clone().extract_highest_version((*ohttp_proxy_url).clone().into()) {
+            Ok(e) => Ok(RequestContext { request: e.0.into(), context: Arc::new(e.1.into()) }),
             Err(e) => Err(e.into()),
         }
     }
 }
 ///Data required for validation of response.
-/// This type is used to process the response. Get it from RequestBuilder's build methods. Then you only need to call .process_response() on it to continue BIP78 flow.
+/// This type is used to process the response. Get it from SenderBuilder's build methods. Then you only need to call .process_response() on it to continue BIP78 flow.
 #[derive(Clone)]
-pub struct ContextV1(payjoin::send::ContextV1);
-impl From<payjoin::send::ContextV1> for ContextV1 {
-    fn from(value: payjoin::send::ContextV1) -> Self {
-        Self(value)
+pub struct V1Context(Arc<payjoin::send::V1Context>);
+impl From<payjoin::send::V1Context> for V1Context {
+    fn from(value: payjoin::send::V1Context) -> Self {
+        Self(Arc::new(value))
     }
 }
 
-impl ContextV1 {
+impl V1Context {
     ///Decodes and validates the response.
     /// Call this method with response from receiver to continue BIP78 flow. If the response is valid you will get appropriate PSBT that you should sign and broadcast.
     pub fn process_response(&self, response: Vec<u8>) -> Result<String, PayjoinError> {

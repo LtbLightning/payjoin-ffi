@@ -382,7 +382,7 @@ mod v2 {
     use http::StatusCode;
     use payjoin_ffi::error::PayjoinError;
     use payjoin_ffi::receive::v2::{
-        ActiveSession, SessionInitializer, V2PayjoinProposal, V2UncheckedProposal,
+        ActiveSession, Receiver, V2PayjoinProposal, V2UncheckedProposal,
     };
     use payjoin_ffi::send::v1::RequestBuilder;
     use payjoin_ffi::types::{Network, OhttpKeys, OutPoint, TxOut};
@@ -494,7 +494,7 @@ mod v2 {
         custom_expire_after: Option<u64>,
     ) -> Result<ActiveSession, BoxError> {
         let mock_ohttp_relay = directory.clone(); // pass through to
-        let initializer = SessionInitializer::new(
+        let initializer = Receiver::new(
             address.to_string(),
             custom_expire_after,
             Network::Regtest,
