@@ -20,3 +20,12 @@ pub use crate::send::uni::*;
 pub use crate::uri::{PjUri, Uri, Url};
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
+
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+// Initialize WASM logging (optional but helpful for debugging)
+#[cfg(feature = "wasm")]
+#[wasm_bindgen(start)]
+pub fn start() {
+    console_error_panic_hook::set_once();
+}
