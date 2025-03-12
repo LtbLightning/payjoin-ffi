@@ -3,6 +3,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
+use crate::utils::result::JsResult;
 
 use payjoin::bitcoin::address::NetworkChecked;
 use payjoin::UriExt;
@@ -25,12 +26,22 @@ impl From<payjoin::Uri<'static, NetworkChecked>> for Uri {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl Uri {
+    #[cfg(not(feature = "wasm"))]
     pub fn parse(uri: String) -> Result<Self, PayjoinError> {
         match payjoin::Uri::from_str(uri.as_str()) {
             Ok(e) => Ok(e.assume_checked().into()),
             Err(e) => Err(PayjoinError::PjParseError { message: e.to_string() }),
         }
     }
+
+    #[cfg(feature = "wasm")]
+    pub fn parse(uri: String) -> JsResult<Uri> {
+        match payjoin::Uri::from_str(uri.as_str()) {
+            Ok(e) => Ok(e.assume_checked().into()),
+            Err(e) => Err(wasm_bindgen::JsError::new(&e.to_string())),
+        }
+    }
+
     pub fn address(&self) -> String {
         self.clone().0.address.to_string()
     }
@@ -67,7 +78,7 @@ impl Uri {
         }
     }
     #[cfg(feature = "wasm")]
-    pub fn check_pj_supported(&self) -> wasm_bindgen::JsResult<PjUri> {
+    pub fn check_pj_supported(&self) -> JsResult<PjUri> {
         match self.0.clone().check_pj_supported() {
             Ok(e) => Ok(e.into()),
             Err(_) => {
@@ -94,22 +105,31 @@ impl<'a> From<PjUri> for payjoin::PjUri<'a> {
 
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
-pub struct PjUri(pub payjoin::PjUri<'static>);
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub struct PjUri(
+    #[wasm_bindgen(skip)]
+    pub payjoin::PjUri<'static>
+);
 
-#[cfg_attr(feature = "uniffi", uniffi::export)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl PjUri {
+    #[wasm_bindgen(getter)]
     pub fn address(&self) -> String {
         self.0.clone().address.to_string()
     }
+
+    #[wasm_bindgen(getter)]
     /// Number of sats requested as payment
     pub fn amount_sats(&self) -> Option<u64> {
         self.0.clone().amount.map(|e| e.to_sat())
     }
 
+    #[wasm_bindgen(getter)]
     pub fn pj_endpoint(&self) -> String {
         self.0.extras.endpoint().to_string()
     }
 
+    #[wasm_bindgen(getter)]
     pub fn as_string(&self) -> String {
         self.0.clone().to_string()
     }

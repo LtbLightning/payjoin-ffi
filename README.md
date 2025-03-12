@@ -57,5 +57,5 @@ We encourage thorough review, testing, and contributions to help improve its sta
 ## WASM
 
 ```shell
-wasm-pack build --features wasm
+wasm-pack build --no-default-features --features wasm
 ```
