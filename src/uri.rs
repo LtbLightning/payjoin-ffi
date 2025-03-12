@@ -1,12 +1,15 @@
 use std::str::FromStr;
 #[cfg(feature = "uniffi")]
 use std::sync::Arc;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use payjoin::bitcoin::address::NetworkChecked;
 use payjoin::UriExt;
 
 use crate::error::PayjoinError;
 #[derive(Clone)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct Uri(payjoin::Uri<'static, NetworkChecked>);
 impl From<Uri> for payjoin::Uri<'static, NetworkChecked> {
     fn from(value: Uri) -> Self {
@@ -20,6 +23,7 @@ impl From<payjoin::Uri<'static, NetworkChecked>> for Uri {
     }
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl Uri {
     pub fn parse(uri: String) -> Result<Self, PayjoinError> {
         match payjoin::Uri::from_str(uri.as_str()) {
@@ -40,7 +44,7 @@ impl Uri {
     pub fn message(&self) -> Option<String> {
         self.0.message.clone().and_then(|x| String::try_from(x).ok())
     }
-    #[cfg(not(feature = "uniffi"))]
+    #[cfg(not(any(feature = "uniffi", feature = "wasm")))]
     pub fn check_pj_supported(&self) -> Result<PjUri, PayjoinError> {
         match self.0.clone().check_pj_supported() {
             Ok(e) => Ok(e.into()),
@@ -59,6 +63,15 @@ impl Uri {
                 Err(PayjoinError::PjNotSupported {
                     message: "Uri doesn't support payjoin".to_string(),
                 })
+            }
+        }
+    }
+    #[cfg(feature = "wasm")]
+    pub fn check_pj_supported(&self) -> wasm_bindgen::JsResult<PjUri> {
+        match self.0.clone().check_pj_supported() {
+            Ok(e) => Ok(e.into()),
+            Err(_) => {
+                Err(wasm_bindgen::JsError::new("Uri doesn't support payjoin"))
             }
         }
     }
