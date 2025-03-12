@@ -2,13 +2,16 @@
 
 pub mod bitcoin_ffi;
 pub mod error;
+#[cfg(not(feature = "wasm"))]
 pub mod io;
 pub mod ohttp;
 pub mod receive;
 pub mod request;
 pub mod send;
 pub mod uri;
+mod utils;
 
+pub use utils::*;
 pub use crate::bitcoin_ffi::*;
 pub use crate::error::PayjoinError;
 pub use crate::ohttp::*;
