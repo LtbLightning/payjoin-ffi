@@ -4,7 +4,8 @@ use payjoin::bitcoin::psbt::PsbtParseError;
 use payjoin::receive::{
     InputContributionError, OutputSubstitutionError, PsbtInputError, ReplyableError, SelectionError,
 };
-use payjoin::send::{ResponseError as PdkResponseError, ValidationError};
+use payjoin::send::v2::{CreateRequestError, EncapsulationError};
+use payjoin::send::{BuildSenderError, ResponseError as PdkResponseError, ValidationError};
 use payjoin::IntoUrlError;
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
@@ -42,6 +43,11 @@ pub enum PayjoinError {
     ///This error can currently only happen due to programmer mistake.
     #[error("Error creating the request: {message}")]
     CreateRequestError { message: String },
+
+    /// Error building a Sender from a SenderBuilder.
+    /// This error is unrecoverable.
+    #[error("Error building the sender: {message}")]
+    BuildSenderError { message: String },
 
     #[error("Error parsing the Pj URL: {message}")]
     PjParseError { message: String },
@@ -85,6 +91,9 @@ pub enum PayjoinError {
 
     #[error("Error converting to URL: {message}")]
     IntoUrlError { message: String },
+
+    #[error("Error encapsulating payload: {message}")]
+    EncapsulationError { message: String },
 }
 
 macro_rules! impl_from_error {
@@ -160,5 +169,23 @@ impl From<IntoUrlError> for PayjoinError {
 impl From<InputContributionError> for PayjoinError {
     fn from(value: InputContributionError) -> Self {
         PayjoinError::InputContributionError { message: format!("{:?}", value) }
+    }
+}
+
+impl From<CreateRequestError> for PayjoinError {
+    fn from(value: CreateRequestError) -> Self {
+        PayjoinError::CreateRequestError { message: format!("{:?}", value) }
+    }
+}
+
+impl From<BuildSenderError> for PayjoinError {
+    fn from(value: BuildSenderError) -> Self {
+        PayjoinError::BuildSenderError { message: format!("{:?}", value) }
+    }
+}
+
+impl From<EncapsulationError> for PayjoinError {
+    fn from(value: EncapsulationError) -> Self {
+        PayjoinError::EncapsulationError { message: format!("{:?}", value) }
     }
 }
