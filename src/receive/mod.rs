@@ -8,7 +8,6 @@ use payjoin::receive as pdk;
 use crate::bitcoin_ffi::{Network, OutPoint, Script, TxOut};
 use crate::error::PayjoinError;
 use crate::ohttp::OhttpKeys;
-use crate::uri::PjUriBuilder;
 use crate::{ClientResponse, Request, Url};
 
 #[cfg(feature = "uniffi")]
@@ -81,10 +80,6 @@ impl Receiver {
             .process_res(body, ctx.into())
             .map(|e| e.map(|o| o.into()))
             .map_err(|e| e.into())
-    }
-
-    pub fn pj_uri_builder(&self) -> PjUriBuilder {
-        <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone()).pj_uri_builder().into()
     }
 
     /// The contents of the `&pj=` query parameter including the base64url-encoded public key receiver subdirectory.
