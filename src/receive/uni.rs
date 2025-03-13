@@ -74,12 +74,6 @@ impl Receiver {
             .map(|e| e.map(|x| Arc::new(x.into())))
     }
 
-    /// The contents of the `&pj=` query parameter including the base64url-encoded public key receiver subdirectory.
-    /// This identifies a session at the payjoin directory server.
-    #[cfg(feature = "uniffi")]
-    pub fn pj_url(&self) -> Arc<Url> {
-        Arc::new(self.0.pj_url())
-    }
     ///The per-session public key to use as an identifier
     pub fn id(&self) -> String {
         self.0.id()
@@ -351,13 +345,13 @@ impl ProvisionalProposal {
         &self,
         process_psbt: Box<dyn ProcessPsbt>,
         min_feerate_sat_per_vb: Option<u64>,
-        max_fee_rate_sat_per_vb: u64,
+        max_effective_fee_rate_sat_per_vb: Option<u64>,
     ) -> Result<Arc<PayjoinProposal>, PayjoinError> {
         self.0
             .finalize_proposal(
                 |psbt| process_psbt.callback(psbt.to_string()),
                 min_feerate_sat_per_vb,
-                max_fee_rate_sat_per_vb,
+                max_effective_fee_rate_sat_per_vb,
             )
             .map(|e| Arc::new(e.into()))
     }
