@@ -5,7 +5,8 @@ use payjoin::receive::{
     ImplementationError, InputContributionError, OutputSubstitutionError, PsbtInputError,
     ReplyableError, SelectionError,
 };
-use payjoin::send::{ResponseError as PdkResponseError, ValidationError};
+use payjoin::send::v2::{CreateRequestError, EncapsulationError};
+use payjoin::send::{BuildSenderError, ResponseError as PdkResponseError, ValidationError};
 use payjoin::IntoUrlError;
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
@@ -43,6 +44,11 @@ pub enum PayjoinError {
     ///This error can currently only happen due to programmer mistake.
     #[error("Error creating the request: {message}")]
     CreateRequestError { message: String },
+
+    /// Error building a Sender from a SenderBuilder.
+    /// This error is unrecoverable.
+    #[error("Error building the sender: {message}")]
+    BuildSenderError { message: String },
 
     #[error("Error parsing the Pj URL: {message}")]
     PjParseError { message: String },
@@ -173,5 +179,23 @@ impl From<InputContributionError> for PayjoinError {
 impl From<ImplementationError> for PayjoinError {
     fn from(value: ImplementationError) -> Self {
         PayjoinError::ImplementationError { message: format!("{:?}", value) }
+    }
+}
+
+impl From<CreateRequestError> for PayjoinError {
+    fn from(value: CreateRequestError) -> Self {
+        PayjoinError::CreateRequestError { message: format!("{:?}", value) }
+    }
+}
+
+impl From<BuildSenderError> for PayjoinError {
+    fn from(value: BuildSenderError) -> Self {
+        PayjoinError::BuildSenderError { message: format!("{:?}", value) }
+    }
+}
+
+impl From<EncapsulationError> for PayjoinError {
+    fn from(value: EncapsulationError) -> Self {
+        PayjoinError::EncapsulationError { message: format!("{:?}", value) }
     }
 }

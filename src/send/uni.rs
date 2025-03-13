@@ -106,10 +106,9 @@ impl From<Sender> for super::Sender {
 
 #[uniffi::export]
 impl Sender {
-    pub fn extract_v1(&self) -> Result<RequestV1Context, PayjoinError> {
-        self.0
-            .extract_v1()
-            .map(|(req, ctx)| RequestV1Context { request: req, context: Arc::new(ctx.into()) })
+    pub fn extract_v1(&self) -> RequestV1Context {
+        let (req, ctx) = self.0.extract_v1();
+        RequestV1Context { request: req, context: Arc::new(ctx.into()) }
     }
 
     /// Extract serialized Request and Context from a Payjoin Proposal.
