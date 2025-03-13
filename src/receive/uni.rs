@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::InputPair;
 use crate::bitcoin_ffi::{Network, OutPoint, Script, TxOut};
 use crate::error::PayjoinError;
-use crate::{ClientResponse, OhttpKeys, PjUriBuilder, Request, Url};
+use crate::{ClientResponse, OhttpKeys, Request, Url};
 
 #[derive(Clone, Debug, uniffi::Object)]
 pub struct Receiver(pub super::Receiver);
@@ -74,9 +74,6 @@ impl Receiver {
             .map(|e| e.map(|x| Arc::new(x.into())))
     }
 
-    pub fn pj_uri_builder(&self) -> Arc<PjUriBuilder> {
-        Arc::new(self.0.pj_uri_builder())
-    }
     /// The contents of the `&pj=` query parameter including the base64url-encoded public key receiver subdirectory.
     /// This identifies a session at the payjoin directory server.
     #[cfg(feature = "uniffi")]
