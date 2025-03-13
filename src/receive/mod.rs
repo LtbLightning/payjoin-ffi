@@ -8,7 +8,7 @@ use payjoin::receive as pdk;
 use crate::bitcoin_ffi::{Network, OutPoint, Script, TxOut};
 use crate::error::PayjoinError;
 use crate::ohttp::OhttpKeys;
-use crate::{ClientResponse, Request, Url};
+use crate::{ClientResponse, Request};
 
 #[cfg(feature = "uniffi")]
 pub mod uni;
@@ -80,12 +80,6 @@ impl Receiver {
             .process_res(body, ctx.into())
             .map(|e| e.map(|o| o.into()))
             .map_err(|e| e.into())
-    }
-
-    /// The contents of the `&pj=` query parameter including the base64url-encoded public key receiver subdirectory.
-    /// This identifies a session at the payjoin directory server.
-    pub fn pj_url(&self) -> Url {
-        <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone()).pj_url().into()
     }
 
     ///The per-session public key to use as an identifier
