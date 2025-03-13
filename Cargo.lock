@@ -374,7 +374,7 @@ dependencies = [
 [[package]]
 name = "bitcoin-ffi"
 version = "0.1.2"
-source = "git+https://github.com/bitcoindevkit/bitcoin-ffi.git?rev=4cd8e644dbf4e001d71d5fffb232480fa5ff2246#4cd8e644dbf4e001d71d5fffb232480fa5ff2246"
+source = "git+https://github.com/dangould/bitcoin-ffi.git?rev=57348c03cbff0d6e12ebd34bb3ad5015cccb4352#57348c03cbff0d6e12ebd34bb3ad5015cccb4352"
 dependencies = [
  "bitcoin 0.32.5",
  "thiserror 1.0.69",
