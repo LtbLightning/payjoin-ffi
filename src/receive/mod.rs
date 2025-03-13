@@ -61,8 +61,11 @@ impl Receiver {
         .map_err(Into::into)
     }
 
-    pub fn extract_req(&self) -> Result<(Request, ClientResponse), PayjoinError> {
-        match self.0.clone().extract_req() {
+    pub fn extract_req(
+        &self,
+        ohttp_relay: String,
+    ) -> Result<(Request, ClientResponse), PayjoinError> {
+        match self.0.clone().extract_req(ohttp_relay) {
             Ok((req, ctx)) => Ok((req.into(), ctx.into())),
             Err(e) => Err(PayjoinError::V2Error { message: e.to_string() }),
         }
@@ -400,13 +403,11 @@ impl PayjoinProposal {
             .to_string()
     }
 
-    pub fn extract_v1_req(&self) -> String {
-        <PayjoinProposal as Into<payjoin::receive::v2::PayjoinProposal>>::into(self.clone())
-            .extract_v1_req()
-    }
-
-    pub fn extract_v2_req(&self) -> Result<(Request, ClientResponse), PayjoinError> {
-        match self.0.clone().extract_v2_req() {
+    pub fn extract_v2_req(
+        &self,
+        ohttp_relay: String,
+    ) -> Result<(Request, ClientResponse), PayjoinError> {
+        match self.0.clone().extract_v2_req(ohttp_relay) {
             Ok((req, ctx)) => Ok((req.into(), ctx.into())),
             Err(e) => Err(PayjoinError::V2Error { message: e.to_string() }),
         }

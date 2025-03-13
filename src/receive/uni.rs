@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::InputPair;
 use crate::bitcoin_ffi::{Network, OutPoint, Script, TxOut};
 use crate::error::PayjoinError;
-use crate::{ClientResponse, OhttpKeys, Request, Url};
+use crate::{ClientResponse, OhttpKeys, Request};
 
 #[derive(Clone, Debug, uniffi::Object)]
 pub struct Receiver(pub super::Receiver);
@@ -41,25 +41,17 @@ impl Receiver {
     pub fn new(
         address: String,
         network: Network,
-        directory: Arc<Url>,
+        directory: String,
         ohttp_keys: Arc<OhttpKeys>,
-        ohttp_relay: Arc<Url>,
         expire_after: Option<u64>,
     ) -> Result<Self, PayjoinError> {
-        super::Receiver::new(
-            address,
-            network,
-            (*directory).clone(),
-            (*ohttp_keys).clone(),
-            (*ohttp_relay).clone(),
-            expire_after,
-        )
-        .map(Into::into)
+        super::Receiver::new(address, network, directory, (*ohttp_keys).clone(), expire_after)
+            .map(Into::into)
     }
 
-    pub fn extract_req(&self) -> Result<RequestResponse, PayjoinError> {
+    pub fn extract_req(&self, ohttp_relay: String) -> Result<RequestResponse, PayjoinError> {
         self.0
-            .extract_req()
+            .extract_req(ohttp_relay)
             .map(|(request, ctx)| RequestResponse { request, client_response: Arc::new(ctx) })
     }
 
@@ -398,12 +390,8 @@ impl PayjoinProposal {
         self.0.psbt()
     }
 
-    pub fn extract_v1_req(&self) -> String {
-        self.0.extract_v1_req()
-    }
-
-    pub fn extract_v2_req(&self) -> Result<RequestResponse, PayjoinError> {
-        let (req, res) = self.0.extract_v2_req()?;
+    pub fn extract_v2_req(&self, ohttp_relay: String) -> Result<RequestResponse, PayjoinError> {
+        let (req, res) = self.0.extract_v2_req(ohttp_relay)?;
         Ok(RequestResponse { request: req, client_response: Arc::new(res) })
     }
 

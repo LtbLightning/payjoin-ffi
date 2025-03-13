@@ -194,9 +194,12 @@ impl From<payjoin::send::V2GetContext> for V2GetContext {
 }
 
 impl V2GetContext {
-    pub fn extract_req(&self, ohttp_relay: Url) -> Result<(Request, ClientResponse), PayjoinError> {
+    pub fn extract_req(
+        &self,
+        ohttp_relay: String,
+    ) -> Result<(Request, ClientResponse), PayjoinError> {
         self.0
-            .extract_req(ohttp_relay.into())
+            .extract_req(ohttp_relay)
             .map(|(req, ctx)| (req.into(), ctx.into()))
             .map_err(|e| e.into())
     }
