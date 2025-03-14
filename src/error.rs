@@ -139,10 +139,3 @@ impl From<payjoin::io::Error> for PayjoinError {
         PayjoinError::IoError { message: value.to_string() }
     }
 }
-
-#[cfg(feature = "wasm")]
-impl From<String> for PayjoinError {
-    fn from(message: String) -> Self {
-        PayjoinError::IoError { message }
-    }
-}
