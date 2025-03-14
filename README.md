@@ -53,3 +53,9 @@ cargo test  --package payjoin_ffi --test bdk_integration_test v2_to_v2_full_cycl
 
 This project is in active development and currently in its Alpha stage. **Please proceed with caution**, particularly when using real funds.
 We encourage thorough review, testing, and contributions to help improve its stability and security before considering production use.
+
+## WASM
+
+```shell
+wasm-pack build --no-default-features --features wasm
+```

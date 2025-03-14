@@ -8,6 +8,15 @@ exclude = ["tests"]
 [features]
 _danger-local-https = ["payjoin/_danger-local-https"]
 uniffi = ["uniffi/cli", "bitcoin-ffi/default"]
+wasm = [
+    "wasm-bindgen",
+    "console_error_panic_hook",
+    "getrandom",
+    "ring",
+    "gloo-timers",
+]
+default = ["io"]
+io = ["payjoin/io"]
 
 [lib]
 name = "payjoin_ffi"
@@ -25,11 +34,17 @@ base64 = "0.22.1"
 bitcoin-ffi = { git = "https://github.com/bitcoindevkit/bitcoin-ffi.git", rev = "4cd8e644dbf4e001d71d5fffb232480fa5ff2246" }
 hex = "0.4.3"
 ohttp = { package = "bitcoin-ohttp", version = "0.6.0" }
-payjoin = { version = "0.22.0", features = ["send", "receive", "base64", "v2", "io"] }
+payjoin = { version = "0.22.0", features = ["send", "receive", "base64", "v2"] }
 serde_json = "1.0.128"
 thiserror = "1.0.58"
 uniffi = { version = "0.28.0", optional = true }
 url = "2.5.0"
+wasm-bindgen = { version = "0.2.91", optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+# Compatibility to compile to WASM
+getrandom = { version = "0.2.15", optional = true, features = ["js"] }
+ring = { version = "0.17.8", optional = true, features = ["wasm32_unknown_unknown_js"] }
+gloo-timers = { version = "0.3.0", optional = true, features = ["futures"] }
 
 [dev-dependencies]
 bdk = { version = "0.29.0", features = ["all-keys", "use-esplora-ureq", "keys-bip39", "rpc"] }
@@ -52,3 +67,13 @@ opt-level = 'z'
 lto = true
 codegen-units = 1
 strip = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false
+
+[[target.'cfg(target_arch = "wasm32")'.lib]]
+name = "payjoin_ffi_wasm"
+crate-type = ["cdylib", "rlib"]
