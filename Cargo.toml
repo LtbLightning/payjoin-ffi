@@ -67,13 +67,3 @@ opt-level = 'z'
 lto = true
 codegen-units = 1
 strip = true
-
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = false
-
-[package.metadata.wasm-pack.profile.dev]
-wasm-opt = false
-
-[[target.'cfg(target_arch = "wasm32")'.lib]]
-name = "payjoin_ffi_wasm"
-crate-type = ["cdylib", "rlib"]
