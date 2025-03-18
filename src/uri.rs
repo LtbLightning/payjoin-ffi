@@ -2,8 +2,10 @@ use std::str::FromStr;
 #[cfg(feature = "uniffi")]
 use std::sync::Arc;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
-use crate::utils::result::JsResult;
+use {
+    crate::utils::result::JsResult,
+    wasm_bindgen::prelude::*,
+};
 
 use payjoin::bitcoin::address::NetworkChecked;
 use payjoin::UriExt;
