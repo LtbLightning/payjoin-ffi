@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use payjoin::bitcoin::psbt::Psbt;
 use payjoin::bitcoin::FeeRate;
-use payjoin::receive::ImplementationError;
 
 use crate::bitcoin_ffi::{Network, OutPoint, Script, TxOut};
 use crate::error::PayjoinError;
@@ -123,14 +122,14 @@ impl UncheckedProposal {
     pub fn check_broadcast_suitability(
         &self,
         min_fee_rate: Option<u64>,
-        can_broadcast: impl Fn(&Vec<u8>) -> Result<bool, ImplementationError>,
+        can_broadcast: impl Fn(&Vec<u8>) -> Result<bool, PayjoinError>,
     ) -> Result<MaybeInputsOwned, PayjoinError> {
         self.0
             .clone()
             .check_broadcast_suitability(
                 min_fee_rate.map(FeeRate::from_sat_per_kwu),
                 |transaction| {
-                    can_broadcast(&payjoin::bitcoin::consensus::encode::serialize(transaction))
+                    Ok(can_broadcast(&payjoin::bitcoin::consensus::encode::serialize(transaction))?)
                 },
             )
             .map(Into::into)
@@ -158,11 +157,11 @@ impl From<payjoin::receive::v2::MaybeInputsOwned> for MaybeInputsOwned {
 impl MaybeInputsOwned {
     pub fn check_inputs_not_owned(
         &self,
-        is_owned: impl Fn(&Vec<u8>) -> Result<bool, ImplementationError>,
+        is_owned: impl Fn(&Vec<u8>) -> Result<bool, PayjoinError>,
     ) -> Result<MaybeInputsSeen, PayjoinError> {
         self.0
             .clone()
-            .check_inputs_not_owned(|input| is_owned(&input.to_bytes()))
+            .check_inputs_not_owned(|input| Ok(is_owned(&input.to_bytes())?))
             .map_err(Into::into)
             .map(Into::into)
     }
@@ -180,11 +179,11 @@ impl From<payjoin::receive::v2::MaybeInputsSeen> for MaybeInputsSeen {
 impl MaybeInputsSeen {
     pub fn check_no_inputs_seen_before(
         &self,
-        is_known: impl Fn(&OutPoint) -> Result<bool, ImplementationError>,
+        is_known: impl Fn(&OutPoint) -> Result<bool, PayjoinError>,
     ) -> Result<OutputsUnknown, PayjoinError> {
         self.0
             .clone()
-            .check_no_inputs_seen_before(|outpoint| is_known(outpoint))
+            .check_no_inputs_seen_before(|outpoint| Ok(is_known(outpoint)?))
             .map_err(Into::into)
             .map(Into::into)
     }
@@ -207,11 +206,11 @@ impl OutputsUnknown {
     /// Find which outputs belong to the receiver
     pub fn identify_receiver_outputs(
         &self,
-        is_receiver_output: impl Fn(&Vec<u8>) -> Result<bool, ImplementationError>,
+        is_receiver_output: impl Fn(&Vec<u8>) -> Result<bool, PayjoinError>,
     ) -> Result<WantsOutputs, PayjoinError> {
         self.0
             .clone()
-            .identify_receiver_outputs(|input| is_receiver_output(&input.to_bytes()))
+            .identify_receiver_outputs(|input| Ok(is_receiver_output(&input.to_bytes())?))
             .map_err(Into::into)
             .map(Into::into)
     }
@@ -343,7 +342,7 @@ impl From<payjoin::receive::v2::ProvisionalProposal> for ProvisionalProposal {
 impl ProvisionalProposal {
     pub fn finalize_proposal(
         &self,
-        process_psbt: impl Fn(String) -> Result<String, ImplementationError>,
+        process_psbt: impl Fn(String) -> Result<String, PayjoinError>,
         min_feerate_sat_per_vb: Option<u64>,
         max_effective_fee_rate_sat_per_vb: Option<u64>,
     ) -> Result<PayjoinProposal, PayjoinError> {

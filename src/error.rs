@@ -2,7 +2,8 @@ use std::fmt::Debug;
 
 use payjoin::bitcoin::psbt::PsbtParseError;
 use payjoin::receive::{
-    InputContributionError, OutputSubstitutionError, PsbtInputError, ReplyableError, SelectionError,
+    ImplementationError, InputContributionError, OutputSubstitutionError, PsbtInputError,
+    ReplyableError, SelectionError,
 };
 use payjoin::send::{ResponseError as PdkResponseError, ValidationError};
 use payjoin::IntoUrlError;
@@ -85,6 +86,12 @@ pub enum PayjoinError {
 
     #[error("Error converting to URL: {message}")]
     IntoUrlError { message: String },
+
+    #[error("Error encapsulating payload: {message}")]
+    EncapsulationError { message: String },
+
+    #[error("Implementation error: {message}")]
+    ImplementationError { message: String },
 }
 
 macro_rules! impl_from_error {
@@ -160,5 +167,11 @@ impl From<IntoUrlError> for PayjoinError {
 impl From<InputContributionError> for PayjoinError {
     fn from(value: InputContributionError) -> Self {
         PayjoinError::InputContributionError { message: format!("{:?}", value) }
+    }
+}
+
+impl From<ImplementationError> for PayjoinError {
+    fn from(value: ImplementationError) -> Self {
+        PayjoinError::ImplementationError { message: format!("{:?}", value) }
     }
 }
