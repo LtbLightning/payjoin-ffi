@@ -83,6 +83,11 @@ impl Receiver {
             .map_err(|e| e.into())
     }
 
+    /// Build a V2 Payjoin URI from the receiver's context
+    pub fn pj_uri(&self) -> crate::PjUri {
+        <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone()).pj_uri().into()
+    }
+
     ///The per-session public key to use as an identifier
     pub fn id(&self) -> String {
         <Self as Into<payjoin::receive::v2::Receiver>>::into(self.clone()).id().to_string()
