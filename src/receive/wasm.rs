@@ -14,6 +14,9 @@ use crate::Url;
 use {
   crate::utils::result::JsResult,
   wasm_bindgen::prelude::*,
+  wasm_bindgen::JsValue,
+  web_sys::console,
+  // web_sys::js_sys::Date,
 };
 
 
@@ -36,33 +39,40 @@ impl Receiver {
       ohttp_keys: String,
       ohttp_relay: String,
       expire_after: Option<u64>,
-  ) -> JsResult<Self> {
+  ) -> JsResult<Receiver> {
+      // Log inputs to console
+      console::log_1(&JsValue::from_str(&format!(
+          "Receiver::new inputs: address={}, network={}, directory={}, ohttp_keys={}, ohttp_relay={}, expire_after={:?}",
+          address, network, directory, ohttp_keys, ohttp_relay, expire_after
+      )));
+
       // Parse network string
       let network = Network::from_str(&network)
-          .map_err(|_| wasm_bindgen::JsError::new(&format!("Invalid network: {}", network)))?;
+          .map_err(|_| wasm_bindgen::JsError::new("Invalid network"))?;
 
       // Parse URLs
       let directory = Url::parse(directory)
-          .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))?;
+          .map_err(|_| wasm_bindgen::JsError::new("Invalid directory URL"))?;
       let ohttp_relay = Url::parse(ohttp_relay)
-          .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))?;
+          .map_err(|_| wasm_bindgen::JsError::new("Invalid relay URL"))?;
 
       // Parse OHTTP keys from JSON string
       let ohttp_keys: OhttpKeys = OhttpKeys::parse(&ohttp_keys)
-          .map_err(|e| wasm_bindgen::JsError::new(&format!("{:?}", e)))?;
+          .map_err(|_| wasm_bindgen::JsError::new("Invalid OHTTP keys"))?;
 
       // Parse Bitcoin address and verify network
       let address = payjoin::bitcoin::Address::from_str(&address)
-          .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))?
+          .map_err(|_| wasm_bindgen::JsError::new("Invalid Bitcoin address"))?
           .require_network(network)
-          .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))?;
+          .map_err(|_| wasm_bindgen::JsError::new("Address network mismatch"))?;
 
-      Ok(payjoin::receive::v2::Receiver::new(
+      Ok(payjoin::receive::v2::Receiver::new(//new_with_time(
           address,
           directory.into(),
           ohttp_keys.into(),
           ohttp_relay.into(),
-          expire_after.map(Duration::from_secs),
+          // js_sys::Date::now(),
+          expire_after.map(Duration::from_secs)
       )
       .into())
   }

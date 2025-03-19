@@ -2091,6 +2091,7 @@ dependencies = [
  "uniffi",
  "url",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
