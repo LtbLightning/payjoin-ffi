@@ -12,8 +12,13 @@ use crate::{ClientResponse, Request};
 #[cfg(feature = "uniffi")]
 pub mod uni;
 
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
+
 #[derive(Clone, Debug)]
 pub struct Receiver(pub payjoin::receive::v2::Receiver);
+
 impl From<Receiver> for payjoin::receive::v2::Receiver {
     fn from(value: Receiver) -> Self {
         value.0
