@@ -10,6 +10,7 @@ use crate::bitcoin_ffi::Network;
 use crate::ohttp::OhttpKeys;
 // use crate::uri::PjUriBuilder;
 use crate::Url;
+use crate::error::PayjoinError;
 
 use {
   crate::utils::result::JsResult,
@@ -51,8 +52,8 @@ impl Receiver {
           .map_err(|_| wasm_bindgen::JsError::new("Invalid network"))?;
 
       // Parse URLs
-      let directory = Url::parse(directory)
-          .map_err(|_| wasm_bindgen::JsError::new("Invalid directory URL"))?;
+      // let directory = Url::parse(directory)
+      //     .map_err(|_| wasm_bindgen::JsError::new("Invalid directory URL"))?;
       let ohttp_relay = Url::parse(ohttp_relay)
           .map_err(|_| wasm_bindgen::JsError::new("Invalid relay URL"))?;
 
@@ -66,14 +67,14 @@ impl Receiver {
           .require_network(network)
           .map_err(|_| wasm_bindgen::JsError::new("Address network mismatch"))?;
 
-      Ok(payjoin::receive::v2::Receiver::new(//new_with_time(
+      Ok(payjoin::receive::v2::Receiver::new(
           address,
-          directory.into(),
+          directory,
           ohttp_keys.into(),
-          ohttp_relay.into(),
-          // js_sys::Date::now(),
+          // Date::now(),
           expire_after.map(Duration::from_secs)
       )
+      .map_err(PayjoinError::from)?
       .into())
   }
 
