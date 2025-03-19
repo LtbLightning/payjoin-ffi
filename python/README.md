@@ -20,7 +20,6 @@ cd python
 
 # Install dependencies
 pip install --requirement requirements.txt
-pip install python-bitcoinlib
 
 # Build the wheel
 python setup.py bdist_wheel --verbose
@@ -46,7 +45,6 @@ cd python
 
 # Install dependencies
 pip install --requirement requirements.txt
-pip install python-bitcoinlib
 
 # Build the wheel
 python setup.py bdist_wheel --verbose
