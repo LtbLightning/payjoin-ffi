@@ -813,6 +813,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1265,6 +1275,18 @@ name = "glob"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
+
+[[package]]
+name = "gloo-timers"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "goblin"
@@ -2001,7 +2023,6 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 [[package]]
 name = "payjoin"
 version = "0.22.0"
-source = "git+https://github.com/payjoin/rust-payjoin.git?rev=bb47c8469146f1a9055b7f850d86f58f2b9627c6#bb47c8469146f1a9055b7f850d86f58f2b9627c6"
 dependencies = [
  "bhttp",
  "bitcoin 0.32.5",
@@ -2015,6 +2036,7 @@ dependencies = [
  "serde",
  "serde_json",
  "url",
+ "web-time",
 ]
 
 [[package]]
@@ -2049,6 +2071,9 @@ dependencies = [
  "bitcoin-ohttp",
  "bitcoincore-rpc",
  "bitcoind",
+ "console_error_panic_hook",
+ "getrandom",
+ "gloo-timers",
  "hex",
  "http",
  "ohttp-relay",
@@ -2056,6 +2081,7 @@ dependencies = [
  "payjoin-directory",
  "rcgen",
  "reqwest",
+ "ring 0.17.8",
  "rustls 0.22.4",
  "serde_json",
  "testcontainers",
@@ -2064,6 +2090,8 @@ dependencies = [
  "tokio",
  "uniffi",
  "url",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -3659,6 +3687,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
+ "serde",
  "wasm-bindgen",
 ]
 
