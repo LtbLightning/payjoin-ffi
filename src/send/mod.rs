@@ -10,6 +10,9 @@ use crate::uri::{PjUri, Url};
 #[cfg(feature = "uniffi")]
 pub mod uni;
 
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
 ///Builder for sender-side payjoin parameters
 ///
 ///These parameters define how client wants to handle Payjoin.

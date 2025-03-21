@@ -8,7 +8,6 @@ use std::time::Duration;
 use crate::bitcoin_ffi::Network;
 // use crate::error::PayjoinError;
 use crate::ohttp::OhttpKeys;
-// use crate::uri::PjUriBuilder;
 use crate::Url;
 use crate::error::PayjoinError;
 
@@ -17,7 +16,7 @@ use {
   wasm_bindgen::prelude::*,
   wasm_bindgen::JsValue,
   web_sys::console,
-  web_sys::js_sys::Date,
+  // web_sys::js_sys::Date,
 };
 
 
@@ -67,15 +66,18 @@ impl Receiver {
           .require_network(network)
           .map_err(|_| wasm_bindgen::JsError::new("Address network mismatch"))?;
 
-      Ok(payjoin::receive::v2::Receiver::new_with_time(
+      Ok(payjoin::receive::v2::Receiver::new(
           address,
           directory,
           ohttp_keys.into(),
-          std::time::SystemTime::UNIX_EPOCH + Duration::from_millis(Date::now() as u64),
           expire_after.map(Duration::from_secs)
       )
       .map_err(PayjoinError::from)?
       .into())
+  }
+
+  pub fn pj_uri(&self) -> crate::PjUri {
+      self.0.pj_uri().into()
   }
 
   // pub fn extract_req(&self) -> Result<RequestResponse, PayjoinError> {
@@ -95,9 +97,6 @@ impl Receiver {
   //         .map(|e| e.map(|x| Arc::new(x.into())))
   // }
 
-  // pub fn pj_uri_builder(&self) -> Arc<PjUriBuilder> {
-  //     Arc::new(self.0.pj_uri_builder())
-  // }
   // /// The contents of the `&pj=` query parameter including the base64url-encoded public key receiver subdirectory.
   // /// This identifies a session at the payjoin directory server.
   // #[cfg(feature = "uniffi")]

@@ -7,6 +7,8 @@ pub mod io;
 pub mod ohttp;
 pub mod receive;
 pub mod request;
+#[cfg(feature = "wasm")]
+pub mod request_wasm;
 pub mod send;
 pub mod uri;
 mod utils;

@@ -251,7 +251,7 @@ impl WantsOutputs {
             replacement_outputs.iter().map(|o| o.clone().into()).collect();
         self.0
             .clone()
-            .replace_receiver_outputs(replacement_outputs, &drain_script.0)
+            .replace_receiver_outputs(replacement_outputs.into_iter(), &drain_script.0)
             .map(Into::into)
             .map_err(Into::into)
     }
