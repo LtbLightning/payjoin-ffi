@@ -40,6 +40,7 @@ impl From<super::SenderBuilder> for SenderBuilder {
 #[wasm_bindgen]
 impl SenderBuilder {
   pub fn from_psbt_and_uri(psbt: String, uri: PjUri) -> JsResult<SenderBuilder> {
+    console::log_1(&JsValue::from_str(&format!("SenderBuilder::from_psbt_and_uri: psbt={}, uri={}", psbt, uri.as_string())));
     super::SenderBuilder::from_psbt_and_uri(psbt, uri)
         .map(Into::into)
         .map_err(Into::into)
