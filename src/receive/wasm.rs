@@ -18,6 +18,7 @@ use {
   wasm_bindgen::prelude::*,
   wasm_bindgen::JsValue,
   web_sys::console,
+  web_sys::js_sys,
   // web_sys::js_sys::Date,
 };
 
@@ -180,6 +181,40 @@ pub struct MaybeInputsOwned(super::MaybeInputsOwned);
 
 impl From<super::MaybeInputsOwned> for MaybeInputsOwned {
     fn from(value: super::MaybeInputsOwned) -> Self {
+        Self(value)
+    }
+}
+
+#[wasm_bindgen]
+impl MaybeInputsOwned {
+    ///Check that the Original PSBT has no receiver-owned inputs. Return original-psbt-rejected error or otherwise refuse to sign undesirable inputs.
+    /// An attacker could try to spend receiver's own inputs. This check prevents that.
+    pub fn check_inputs_not_owned(
+        &self,
+        is_owned: js_sys::Function,
+    ) -> JsResult<MaybeInputsSeen> {
+        self.0
+            .check_inputs_not_owned(|input| {
+                let result = is_owned.call1(&JsValue::NULL, &js_sys::Uint8Array::from(&input[..]))
+                    .map_err(|e| PayjoinError::UnexpectedError { 
+                        message: e.as_string().unwrap_or_else(|| "Unknown JS error".to_string())
+                    })?;
+                result.as_bool()
+                    .ok_or_else(|| PayjoinError::UnexpectedError { 
+                        message: "Function must return boolean".to_string() 
+                    })
+            })
+            .map(|t| t.into())
+            .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
+    }
+}
+
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct MaybeInputsSeen(super::MaybeInputsSeen);
+
+impl From<super::MaybeInputsSeen> for MaybeInputsSeen {
+    fn from(value: super::MaybeInputsSeen) -> Self {
         Self(value)
     }
 }
