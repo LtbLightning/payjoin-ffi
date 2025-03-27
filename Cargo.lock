@@ -2083,6 +2083,7 @@ dependencies = [
  "reqwest",
  "ring 0.17.8",
  "rustls 0.22.4",
+ "serde-wasm-bindgen",
  "serde_json",
  "testcontainers",
  "testcontainers-modules",
@@ -2718,6 +2719,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6513c1ad0b11a9376da888e3e0baa0077f1aed55c17f50e7b2397136129fb88f"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-wasm-bindgen"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1515286919c7a28f96c362f42cd42aec7ef6d417334118be69d1ad96160aa5f5"
+dependencies = [
+ "fnv",
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]

@@ -20,6 +20,7 @@ use {
   web_sys::console,
   web_sys::js_sys,
   // web_sys::js_sys::Date,
+  serde_wasm_bindgen,
 };
 
 
@@ -215,6 +216,123 @@ pub struct MaybeInputsSeen(super::MaybeInputsSeen);
 
 impl From<super::MaybeInputsSeen> for MaybeInputsSeen {
     fn from(value: super::MaybeInputsSeen) -> Self {
+        Self(value)
+    }
+}
+
+#[wasm_bindgen]
+impl MaybeInputsSeen {
+    /// Make sure that the original transaction inputs have never been seen before. This prevents probing attacks. This prevents reentrant Payjoin, where a sender proposes a Payjoin PSBT as a new Original PSBT for a new Payjoin.
+    pub fn check_no_inputs_seen_before(
+        &self,
+        is_known: js_sys::Function,
+    ) -> JsResult<OutputsUnknown> {
+        self.0
+            .clone()
+            .check_no_inputs_seen_before(|outpoint| {
+                // Convert the outpoint to a JsValue and call the callback
+                is_known.call1(&JsValue::null(), &serde_wasm_bindgen::to_value(outpoint).map_err(|e| PayjoinError::UnexpectedError {
+                    message: e.to_string(),
+                })?)
+                    .map(|result| result.as_bool().unwrap_or(false))
+                    .map(Ok)
+                    .unwrap_or(Ok(false))
+            })
+            .map(|t| t.into())
+            .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
+    }
+}
+
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct OutputsUnknown(super::OutputsUnknown);
+
+impl From<super::OutputsUnknown> for OutputsUnknown {
+    fn from(value: super::OutputsUnknown) -> Self {
+        Self(value)
+    }
+}
+
+#[wasm_bindgen]
+impl OutputsUnknown {
+    /// Find which outputs belong to the receiver
+    pub fn identify_receiver_outputs(
+        &self,
+        is_receiver_output: js_sys::Function,
+    ) -> JsResult<WantsOutputs> {
+        self.0
+            .clone()
+            .identify_receiver_outputs(|output_script| {
+                is_receiver_output.call1(&JsValue::null(), &js_sys::Uint8Array::from(&output_script[..]))
+                    .map(|result| result.as_bool().unwrap_or(false))
+                    .map_err(|e| PayjoinError::UnexpectedError {
+                        message: e.as_string().unwrap_or_else(|| "Unknown JS error".to_string())
+                    })
+            })
+            .map(|t| t.into())
+            .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
+    }
+}
+
+#[wasm_bindgen]
+pub struct WantsOutputs(super::WantsOutputs);
+
+impl From<super::WantsOutputs> for WantsOutputs {
+    fn from(value: super::WantsOutputs) -> Self {
+        Self(value)
+    }
+}
+
+#[wasm_bindgen]
+impl WantsOutputs {
+    pub fn commit_outputs(&self) -> WantsInputs {
+        self.0.commit_outputs().into()
+    }
+}
+
+#[wasm_bindgen]
+pub struct WantsInputs(super::WantsInputs);
+
+impl From<super::WantsInputs> for WantsInputs {
+    fn from(value: super::WantsInputs) -> Self {
+        Self(value)
+    }
+}
+#[wasm_bindgen]
+impl WantsInputs {
+
+    pub fn contribute_inputs(
+        &self,
+        replacement_inputs: Vec<InputPair>,
+    ) -> JsResult<WantsInputs> {
+        let replacement_inputs: Vec<super::InputPair> = replacement_inputs
+            .into_iter()
+            .map(|pair| pair.0)
+            .collect();
+        self.0.contribute_inputs(replacement_inputs)
+            .map(|t| t.into())
+            .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
+    }
+
+    pub fn commit_inputs(&self) -> ProvisionalProposal {
+        self.0.commit_inputs().into()
+    }
+}
+
+#[wasm_bindgen]
+pub struct InputPair(super::InputPair);
+
+impl From<super::InputPair> for InputPair {
+    fn from(value: super::InputPair) -> Self {
+        Self(value)
+    }
+}
+
+#[wasm_bindgen]
+pub struct ProvisionalProposal(super::ProvisionalProposal);
+
+impl From<super::ProvisionalProposal> for ProvisionalProposal {
+    fn from(value: super::ProvisionalProposal) -> Self {
         Self(value)
     }
 }
