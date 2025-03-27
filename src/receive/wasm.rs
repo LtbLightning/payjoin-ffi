@@ -89,16 +89,17 @@ impl Receiver {
           .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
   }
 
-  // ///The response can either be an UncheckedProposal or an ACCEPTED message indicating no UncheckedProposal is available yet.
-  // pub fn process_res(
-  //     &self,
-  //     body: &[u8],
-  //     context: Arc<ClientResponse>,
-  // ) -> Result<Option<Arc<UncheckedProposal>>, PayjoinError> {
-  //     <Self as Into<super::Receiver>>::into(self.clone())
-  //         .process_res(body, context.as_ref())
-  //         .map(|e| e.map(|x| Arc::new(x.into())))
-  // }
+  ///The response can either be an UncheckedProposal or an ACCEPTED message indicating no UncheckedProposal is available yet.
+  pub fn process_res(
+      &self,
+      body: &[u8],
+      context: ClientResponse,
+  ) -> JsResult<Option<UncheckedProposal>> {
+      self.0
+          .process_res(body, &context)
+          .map(|e| e.map(|x| x.into()))
+          .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
+  }
 
   // /// The contents of the `&pj=` query parameter including the base64url-encoded public key receiver subdirectory.
   // /// This identifies a session at the payjoin directory server.
@@ -142,5 +143,43 @@ impl RequestResponse {
     #[wasm_bindgen(getter)]
     pub fn client_response(self) -> ClientResponse {
         self.1
+    }
+}
+
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct UncheckedProposal(super::UncheckedProposal);
+
+impl From<super::UncheckedProposal> for UncheckedProposal {
+    fn from(value: super::UncheckedProposal) -> Self {
+        Self(value)
+    }
+}
+
+#[wasm_bindgen]
+impl UncheckedProposal {
+    pub fn check_broadcast_suitability(
+        &self,
+        min_fee_rate: Option<u64>,
+        can_broadcast: Option<bool>,//Box<dyn CanBroadcast>,//fn to check tx can broadcast
+    ) -> JsResult<MaybeInputsOwned> {
+        self.0
+            .clone()
+            .check_broadcast_suitability(min_fee_rate, |transaction| {
+                // should actually check if the transaction can be broadcast
+                Ok(can_broadcast.unwrap_or(false))
+            })
+            .map(|e| e.into())
+            .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
+    }
+}
+
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct MaybeInputsOwned(super::MaybeInputsOwned);
+
+impl From<super::MaybeInputsOwned> for MaybeInputsOwned {
+    fn from(value: super::MaybeInputsOwned) -> Self {
+        Self(value)
     }
 }
