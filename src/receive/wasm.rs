@@ -7,7 +7,9 @@ use std::time::Duration;
 
 use crate::bitcoin_ffi::Network;
 // use crate::error::PayjoinError;
-use crate::ohttp::OhttpKeys;
+
+use crate::ohttp::{ClientResponse, OhttpKeys};
+use crate::request_wasm::Request;
 use crate::Url;
 use crate::error::PayjoinError;
 
@@ -80,11 +82,12 @@ impl Receiver {
       self.0.pj_uri().into()
   }
 
-  // pub fn extract_req(&self) -> Result<RequestResponse, PayjoinError> {
-  //     self.0
-  //         .extract_req()
-  //         .map(|(request, ctx)| RequestResponse { request, client_response: Arc::new(ctx) })
-  // }
+  pub fn extract_req(&self, ohttp_relay: String) -> JsResult<RequestResponse> {
+      self.0
+          .extract_req(ohttp_relay)
+          .map(|(request, ctx)| RequestResponse::new(request.into(), ctx))
+          .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
+  }
 
   // ///The response can either be an UncheckedProposal or an ACCEPTED message indicating no UncheckedProposal is available yet.
   // pub fn process_res(
@@ -118,4 +121,26 @@ impl Receiver {
   //         .map(Into::into)
   //         .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
   // }
+}
+
+#[wasm_bindgen]
+pub struct RequestResponse(Request, ClientResponse);
+
+#[wasm_bindgen]
+impl RequestResponse {
+    #[wasm_bindgen(constructor)]
+    pub fn new(request: Request, client_response: ClientResponse) -> Self {
+        Self(request, client_response)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn request(&self) -> Request {
+        self.0.clone()
+    }
+
+    // consumes self, so RequestResponse won't be available in js after getting client_response
+    #[wasm_bindgen(getter)]
+    pub fn client_response(self) -> ClientResponse {
+        self.1
+    }
 }
