@@ -1936,7 +1936,7 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 [[package]]
 name = "payjoin"
 version = "0.22.0"
-source = "git+https://github.com/payjoin/rust-payjoin.git?branch=bindings-0.23#59f2a34149f5b7d652ee3920aa8b1461279d4f82"
+source = "git+https://github.com/payjoin/rust-payjoin.git?branch=bindings-0.23#fbf5e2b3c25765c768e1db7fe03e17d0d99dcb6b"
 dependencies = [
  "bhttp",
  "bitcoin 0.32.5",
@@ -1955,7 +1955,7 @@ dependencies = [
 [[package]]
 name = "payjoin-directory"
 version = "0.0.1"
-source = "git+https://github.com/payjoin/rust-payjoin.git?branch=bindings-0.23#59f2a34149f5b7d652ee3920aa8b1461279d4f82"
+source = "git+https://github.com/payjoin/rust-payjoin.git?branch=bindings-0.23#fbf5e2b3c25765c768e1db7fe03e17d0d99dcb6b"
 dependencies = [
  "anyhow",
  "bhttp",
@@ -1978,7 +1978,7 @@ dependencies = [
 [[package]]
 name = "payjoin-test-utils"
 version = "0.1.0"
-source = "git+https://github.com/payjoin/rust-payjoin.git?branch=bindings-0.23#59f2a34149f5b7d652ee3920aa8b1461279d4f82"
+source = "git+https://github.com/payjoin/rust-payjoin.git?branch=bindings-0.23#fbf5e2b3c25765c768e1db7fe03e17d0d99dcb6b"
 dependencies = [
  "bitcoin 0.32.5",
  "bitcoin-ohttp",

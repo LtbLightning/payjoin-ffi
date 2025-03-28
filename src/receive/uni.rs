@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use super::InputPair;
-use crate::bitcoin_ffi::{Network, OutPoint, Script, TxOut};
+use crate::bitcoin_ffi::{Address, OutPoint, Script, TxOut};
 pub use crate::receive::{
     Error, ImplementationError, InputContributionError, OutputSubstitutionError, ReplyableError,
     SelectionError, SerdeJsonError,
 };
+use crate::uri::error::IntoUrlError;
 use crate::{ClientResponse, OhttpKeys, Request};
 
 #[derive(Clone, Debug, uniffi::Object)]
@@ -29,7 +30,6 @@ impl Receiver {
     ///
     /// # Parameters
     /// - `address`: The Bitcoin address for the payjoin session.
-    /// - `network`: The network to use for address verification.
     /// - `directory`: The URL of the store-and-forward payjoin directory.
     /// - `ohttp_keys`: The OHTTP keys used for encrypting and decrypting HTTP requests and responses.
     /// - `ohttp_relay`: The URL of the OHTTP relay, used to keep client IP address confidential.
@@ -42,13 +42,12 @@ impl Receiver {
     /// - [BIP 77: Payjoin Version 2: Serverless Payjoin](https://github.com/bitcoin/bips/pull/1483)
     #[uniffi::constructor]
     pub fn new(
-        address: String,
-        network: Network,
+        address: Arc<Address>,
         directory: String,
         ohttp_keys: Arc<OhttpKeys>,
         expire_after: Option<u64>,
-    ) -> Result<Self, Error> {
-        super::Receiver::new(address, network, directory, (*ohttp_keys).clone(), expire_after)
+    ) -> Result<Self, IntoUrlError> {
+        super::Receiver::new((*address).clone(), directory, (*ohttp_keys).clone(), expire_after)
             .map(Into::into)
     }
 
