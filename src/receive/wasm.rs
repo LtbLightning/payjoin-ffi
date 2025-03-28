@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use std::time::Duration;
+use std::sync::Arc;
 
 // use payjoin::bitcoin::psbt::Psbt;
 // use payjoin::bitcoin::FeeRate;
@@ -326,6 +327,35 @@ impl From<super::InputPair> for InputPair {
     fn from(value: super::InputPair) -> Self {
         Self(value)
     }
+}
+
+#[wasm_bindgen]
+impl InputPair {
+  pub fn new(
+    txid: String,
+    vout: u32,
+    value: u64,
+    script_pubkey: String,
+  ) -> Self {
+    let txin = bitcoin_ffi::TxIn {
+      previous_output: bitcoin_ffi::OutPoint {
+        txid: bitcoin_ffi::Txid::from_str(&txid).unwrap(),
+        vout,
+      },
+      script_sig: Arc::new(bitcoin_ffi::Script::new(Vec::new())),
+      sequence: 0xffffffff,
+      witness: Vec::new(),
+    };
+    let psbtin = crate::bitcoin_ffi::PsbtInput {
+      witness_utxo: Some(bitcoin_ffi::TxOut {
+        value: Arc::new(bitcoin_ffi::Amount::from_sat(value)),
+        script_pubkey: Arc::new(bitcoin_ffi::Script::new(script_pubkey.into())),
+      }),
+      redeem_script: None,
+      witness_script: None,
+    };
+    Self(super::InputPair::new(txin, psbtin).unwrap())
+  }
 }
 
 #[wasm_bindgen]
