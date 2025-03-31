@@ -335,7 +335,7 @@ impl InputPair {
     txid: String,
     vout: u32,
     value: u64,
-    script_pubkey: String,
+    script_pubkey: Vec<u8>,
   ) -> Self {
     let txin = bitcoin_ffi::TxIn {
       previous_output: bitcoin_ffi::OutPoint {
@@ -346,10 +346,11 @@ impl InputPair {
       sequence: 0xffffffff,
       witness: Vec::new(),
     };
+    // console::log_1(&JsValue::from_str(&format!("InputPair::new: txid={}, vout={}, value={}, script_pubkey={}", txid, vout, value, script_pubkey)));
     let psbtin = crate::bitcoin_ffi::PsbtInput {
       witness_utxo: Some(bitcoin_ffi::TxOut {
         value: Arc::new(bitcoin_ffi::Amount::from_sat(value)),
-        script_pubkey: Arc::new(bitcoin_ffi::Script::new(script_pubkey.into())),
+        script_pubkey: Arc::new(bitcoin_ffi::Script::new(script_pubkey)),
       }),
       redeem_script: None,
       witness_script: None,
