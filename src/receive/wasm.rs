@@ -411,3 +411,26 @@ impl From<super::PayjoinProposal> for PayjoinProposal {
         Self(value)
     }
 }
+
+#[wasm_bindgen]
+impl PayjoinProposal {
+
+  pub fn extract_v2_req(
+      &self,
+      ohttp_relay: String,
+  ) -> JsResult<RequestResponse> {
+      match self.0.clone().extract_v2_req(ohttp_relay) {
+          Ok((req, ctx)) => Ok(RequestResponse::new(req.into(), ctx.into())),
+          Err(e) => Err(wasm_bindgen::JsError::new(&e.to_string()))
+      }
+  }
+
+  pub fn process_res(
+      &self,
+      body: &[u8],
+      ohttp_context: &ClientResponse,
+  ) -> JsResult<()> {
+      self.0.process_res(body, ohttp_context.into())
+          .map_err(|e| e.into())
+  }
+}
