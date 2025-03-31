@@ -367,3 +367,47 @@ impl From<super::ProvisionalProposal> for ProvisionalProposal {
         Self(value)
     }
 }
+
+#[wasm_bindgen]
+impl ProvisionalProposal {
+    pub fn finalize_proposal(
+        &self,
+        process_psbt: js_sys::Function,
+        min_feerate_sat_per_vb: Option<u64>,
+        max_effective_fee_rate_sat_per_vb: Option<u64>,
+    ) -> JsResult<PayjoinProposal> {
+        self.0
+            .finalize_proposal(
+                |psbt| {
+                    process_psbt.call1(&JsValue::null(), &JsValue::from_str(&psbt.to_string()))
+                        .map_err(|e| PayjoinError::UnexpectedError { 
+                            message: e.as_string().unwrap_or_else(|| "Unknown JS error".to_string())
+                        })?
+                        .as_string()
+                        .ok_or_else(|| PayjoinError::UnexpectedError {
+                            message: "Process PSBT must return string".to_string() 
+                        })
+                },
+                min_feerate_sat_per_vb,
+                max_effective_fee_rate_sat_per_vb,
+            )
+            .map(|e| e.into())
+            .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
+    }
+}
+
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct PayjoinProposal(super::PayjoinProposal);
+
+impl From<PayjoinProposal> for super::PayjoinProposal {
+    fn from(value: PayjoinProposal) -> Self {
+        value.0
+    }
+}
+
+impl From<super::PayjoinProposal> for PayjoinProposal {
+    fn from(value: super::PayjoinProposal) -> Self {
+        Self(value)
+    }
+}
