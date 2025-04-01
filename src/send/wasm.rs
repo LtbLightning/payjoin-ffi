@@ -120,15 +120,18 @@ impl V2GetContext {
 #[wasm_bindgen]
 pub struct RequestOhttpContext (Request, ClientResponse);
 
+#[wasm_bindgen]
 impl RequestOhttpContext {
     pub fn new(request: Request, ohttp_ctx: ClientResponse) -> Self {
         Self(request, ohttp_ctx)
     }
 
+    #[wasm_bindgen(getter)]
     pub fn request(&self) -> Request {
         self.0.clone()
     }
 
+    #[wasm_bindgen(getter)]
     pub fn ohttp_ctx(self) -> ClientResponse {
         self.1
     }
