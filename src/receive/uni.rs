@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use payjoin::receive::v2;
-
 use super::InputPair;
 use crate::bitcoin_ffi::{Address, OutPoint, Script, TxOut};
 pub use crate::receive::{
@@ -63,22 +61,7 @@ impl NewReceiver {
 }
 
 #[derive(Clone, Debug, uniffi::Object)]
-pub struct Receiver(super::Receiver);
-
-impl From<Receiver> for super::Receiver {
-    fn from(value: Receiver) -> Self {
-        value.0
-    }
-}
-
-impl From<super::Receiver> for Receiver {
-    fn from(value: super::Receiver) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Clone, Debug, uniffi::Object)]
-struct ReceiverToken(payjoin::receive::v2::ReceiverToken);
+pub struct ReceiverToken(payjoin::receive::v2::ReceiverToken);
 
 impl From<ReceiverToken> for payjoin::receive::v2::ReceiverToken {
     fn from(value: ReceiverToken) -> Self {
@@ -98,6 +81,21 @@ impl From<payjoin::receive::v2::Receiver> for ReceiverToken {
     }
 }
 
+#[derive(Clone, Debug, uniffi::Object)]
+pub struct Receiver(super::Receiver);
+
+impl From<Receiver> for super::Receiver {
+    fn from(value: Receiver) -> Self {
+        value.0
+    }
+}
+
+impl From<super::Receiver> for Receiver {
+    fn from(value: super::Receiver) -> Self {
+        Self(value)
+    }
+}
+
 #[uniffi::export]
 impl Receiver {
     /// Loads a [`Receiver`] from the provided persister using the storage token.
@@ -106,7 +104,7 @@ impl Receiver {
         token: Arc<ReceiverToken>,
         persister: Arc<dyn ReceiverPersister>,
     ) -> Result<Self, ImplementationError> {
-        Ok(super::Receiver::from(persister.load(token.into()).unwrap()).into())
+        Ok(super::Receiver::from(persister.load(token).unwrap()).into())
     }
 
     /// The contents of the `&pj=` query parameter including the base64url-encoded public key receiver subdirectory.
@@ -495,58 +493,20 @@ pub trait ReceiverPersister: Send + Sync {
     fn load(&self, token: Arc<ReceiverToken>) -> Result<Receiver, ImplementationError>;
 }
 
-// Define a trait for the save callback
+// The callback to save a receiver and return a token
 #[uniffi::export]
-pub trait SaveCallback: Send + Sync {
-    fn save(&self, receiver: Vec<u8>) -> Result<ReceiverToken, String>;
+pub trait SaveReceiverCallback: Send + Sync {
+    fn save(&self, receiver: Vec<u8>) -> Result<ReceiverToken, ImplementationError>;
 }
 
-// Define a trait for the load callback
+// The callback to load a receiver from a token
 #[uniffi::export]
-pub trait LoadCallback: Send + Sync {
-    fn load(&self, token: Vec<u8>) -> Result<Vec<u8>, String>;
+pub trait LoadReceiverCallback: Send + Sync {
+    fn load(&self, token: Vec<u8>) -> Result<Vec<u8>, ImplementationError>;
 }
 
-// Use the callbacks in your persistence logic
-pub struct Persister {
-    save_callback: Arc<dyn SaveCallback>,
-    load_callback: Arc<dyn LoadCallback>,
-}
-
-impl Persister {
-    pub fn new(save_callback: Arc<dyn SaveCallback>, load_callback: Arc<dyn LoadCallback>) -> Self {
-        Self { save_callback, load_callback }
-    }
-
-    pub fn save_receiver(&self, receiver: Receiver) -> Result<ReceiverToken, ImplementationError> {
-        let receiver_bytes = serialize_receiver(receiver);
-        let token_bytes = self.save_callback.save(receiver_bytes)?;
-        Ok(token_bytes)
-    }
-
-    pub fn load_receiver(&self, token: ReceiverToken) -> Result<Receiver, ImplementationError> {
-        let token_bytes = serialize_token(token);
-        let receiver_bytes = self.load_callback.load(token_bytes)?;
-        Ok(deserialize_receiver(receiver_bytes))
-    }
-}
-fn serialize_receiver(receiver: Receiver) -> Vec<u8> {
-    let ffi = receiver.0;
-    let inner = ffi.0;
-    serde_json::to_vec(&inner).unwrap()
-}
-
-fn deserialize_receiver(bytes: Vec<u8>) -> Receiver {
-    let inner: v2::Receiver = serde_json::from_slice(&bytes).unwrap();
-    Receiver(super::Receiver::from(inner))
-}
-
-fn serialize_token(token: ReceiverToken) -> Vec<u8> {
-    token.0.as_ref().to_vec()
-}
-
-// Define the adapter struct
-pub struct CallbackPersisterAdapter {
+/// Adapter for the ReceiverPersister trait to use the save and load callbacks.
+struct CallbackPersisterAdapter {
     callback_persister: Arc<dyn ReceiverPersister>,
 }
 
@@ -565,10 +525,10 @@ impl payjoin::persist::Persister<payjoin::receive::v2::Receiver> for CallbackPer
         receiver: payjoin::receive::v2::Receiver,
     ) -> Result<Self::Token, Self::Error> {
         let receiver = Receiver(super::Receiver::from(receiver));
-        self.callback_persister.save(Arc::new(receiver))
+        self.callback_persister.save(receiver.into())
     }
 
     fn load(&self, token: Self::Token) -> Result<payjoin::receive::v2::Receiver, Self::Error> {
-        self.callback_persister.load(Arc::new(token)).map(|receiver| receiver.0 .0)
+        self.callback_persister.load(token.into()).map(|receiver| receiver.0 .0)
     }
 }

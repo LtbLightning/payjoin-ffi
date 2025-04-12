@@ -1935,25 +1935,6 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "payjoin"
-version = "0.22.0"
-source = "git+https://github.com/payjoin/rust-payjoin.git?branch=bindings-0.23#53a3187887e82925fc3f999fb73ab08caf8d1832"
-dependencies = [
- "bhttp",
- "bitcoin 0.32.5",
- "bitcoin-hpke",
- "bitcoin-ohttp",
- "bitcoin_uri",
- "http",
- "log",
- "reqwest",
- "rustls 0.22.4",
- "serde",
- "serde_json",
- "url",
-]
-
-[[package]]
-name = "payjoin"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1897797565f894c0902cb9621ce50e92d3a25f530e82a944cd5b84674fe0dcfc"
@@ -1974,8 +1955,9 @@ dependencies = [
 
 [[package]]
 name = "payjoin-directory"
-version = "0.0.1"
-source = "git+https://github.com/payjoin/rust-payjoin.git?branch=bindings-0.23#53a3187887e82925fc3f999fb73ab08caf8d1832"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "978b1ca452bf868ea05d535e7ff2d82b69a84ee7aa9de042bb7db7e78752bd7a"
 dependencies = [
  "anyhow",
  "bhttp",
@@ -1986,7 +1968,7 @@ dependencies = [
  "hyper",
  "hyper-rustls 0.26.0",
  "hyper-util",
- "payjoin 0.22.0",
+ "payjoin",
  "redis",
  "rustls 0.22.4",
  "tokio",
@@ -1997,8 +1979,9 @@ dependencies = [
 
 [[package]]
 name = "payjoin-test-utils"
-version = "0.1.0"
-source = "git+https://github.com/payjoin/rust-payjoin.git?branch=bindings-0.23#53a3187887e82925fc3f999fb73ab08caf8d1832"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f239ed1431504cc4efb8469e0986656d3741b5c2f810d9eef8de06e329a67e37"
 dependencies = [
  "bitcoin 0.32.5",
  "bitcoin-ohttp",
@@ -2008,7 +1991,7 @@ dependencies = [
  "log",
  "ohttp-relay 0.0.10",
  "once_cell",
- "payjoin 0.22.0",
+ "payjoin",
  "payjoin-directory",
  "rcgen",
  "reqwest",
@@ -2034,11 +2017,12 @@ dependencies = [
  "hex",
  "http",
  "ohttp-relay 0.0.8",
- "payjoin 0.23.0",
+ "payjoin",
  "payjoin-test-utils",
  "rcgen",
  "reqwest",
  "rustls 0.22.4",
+ "serde",
  "serde_json",
  "testcontainers",
  "testcontainers-modules 0.1.4",
