@@ -37,16 +37,15 @@ impl OhttpKeys {
         payjoin::OhttpKeys::decode(bytes.as_slice()).map(|e| e.into()).map_err(|e| e.into())
     }
 
-    // #[cfg(feature = "wasm")]
-    // #[wasm_bindgen(constructor)]
-    // pub fn decode(bytes: Vec<u8>) -> JsResult<OhttpKeys> {
-    //     payjoin::OhttpKeys::decode(bytes.as_slice())
-    //         .map(|e| e.into())
-    //         .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
-    // }
-
     #[cfg(feature = "wasm")]
     #[wasm_bindgen(constructor)]
+    pub fn decode(bytes: Vec<u8>) -> JsResult<OhttpKeys> {
+        payjoin::OhttpKeys::decode(bytes.as_slice())
+            .map(|e| e.into())
+            .map_err(|e| wasm_bindgen::JsError::new(&e.to_string()))
+    }
+
+    #[cfg(feature = "wasm")]
     pub fn parse(s: &str) -> JsResult<OhttpKeys> {
         payjoin::OhttpKeys::from_str(s)
             .map(|e| e.into())
