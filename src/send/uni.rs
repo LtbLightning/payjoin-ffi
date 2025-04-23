@@ -270,18 +270,6 @@ pub trait SenderPersister: Send + Sync {
     fn load(&self, token: Arc<SenderToken>) -> Arc<Sender>;
 }
 
-// The callback to save a sender and return a token
-#[uniffi::export]
-trait SaveSenderCallback: Send + Sync {
-    fn save(&self, sender: Vec<u8>) -> Result<SenderToken, ImplementationError>;
-}
-
-// The callback to load a sender from a token
-#[uniffi::export]
-trait LoadSenderCallback: Send + Sync {
-    fn load(&self, token: Vec<u8>) -> Result<Vec<u8>, ImplementationError>;
-}
-
 // The adapter to use the save and load callbacks
 struct CallbackPersisterAdapter {
     callback_persister: Arc<dyn SenderPersister>,
