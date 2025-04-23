@@ -126,6 +126,35 @@ impl NewSender {
     }
 }
 
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
+pub struct SenderToken(payjoin::send::v2::SenderToken);
+
+#[cfg_attr(feature = "uniffi", uniffi::export)]
+impl SenderToken {
+    pub fn to_string(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl From<SenderToken> for payjoin::send::v2::SenderToken {
+    fn from(value: SenderToken) -> Self {
+        value.0
+    }
+}
+
+impl From<payjoin::send::v2::SenderToken> for SenderToken {
+    fn from(value: payjoin::send::v2::SenderToken) -> Self {
+        Self(value)
+    }
+}
+
+impl From<payjoin::send::v2::Sender> for SenderToken {
+    fn from(value: payjoin::send::v2::Sender) -> Self {
+        SenderToken(value.into())
+    }
+}
+
 #[derive(Clone)]
 pub struct Sender(payjoin::send::v2::Sender);
 

@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
+use payjoin::persist::Value;
+
 use super::InputPair;
 use crate::bitcoin_ffi::{Address, OutPoint, Script, TxOut};
+use crate::receive::ReceiverToken;
 pub use crate::receive::{
     Error, ImplementationError, InputContributionError, JsonReply, OutputSubstitutionError,
     ReplyableError, SelectionError, SerdeJsonError, SessionError,
@@ -61,27 +64,6 @@ impl NewReceiver {
 }
 
 #[derive(Clone, Debug, uniffi::Object)]
-pub struct ReceiverToken(payjoin::receive::v2::ReceiverToken);
-
-impl From<ReceiverToken> for payjoin::receive::v2::ReceiverToken {
-    fn from(value: ReceiverToken) -> Self {
-        value.0
-    }
-}
-
-impl From<payjoin::receive::v2::ReceiverToken> for ReceiverToken {
-    fn from(value: payjoin::receive::v2::ReceiverToken) -> Self {
-        Self(value)
-    }
-}
-
-impl From<payjoin::receive::v2::Receiver> for ReceiverToken {
-    fn from(value: payjoin::receive::v2::Receiver) -> Self {
-        ReceiverToken(value.into())
-    }
-}
-
-#[derive(Clone, Debug, uniffi::Object)]
 pub struct Receiver(super::Receiver);
 
 impl From<Receiver> for super::Receiver {
@@ -100,11 +82,12 @@ impl From<super::Receiver> for Receiver {
 impl Receiver {
     /// Loads a [`Receiver`] from the provided persister using the storage token.
     #[uniffi::constructor]
-    pub fn load(
-        token: Arc<ReceiverToken>,
-        persister: Arc<dyn ReceiverPersister>,
-    ) -> Result<Self, ImplementationError> {
-        Ok(super::Receiver::from(persister.load(token).unwrap()).into())
+    pub fn load(token: Arc<ReceiverToken>, persister: Arc<dyn ReceiverPersister>) -> Self {
+        super::Receiver::from((*persister.load(token)).clone()).into()
+    }
+
+    pub fn key(&self) -> ReceiverToken {
+        ReceiverToken(self.0 .0.key())
     }
 
     /// The contents of the `&pj=` query parameter including the base64url-encoded public key receiver subdirectory.
@@ -487,10 +470,10 @@ impl PayjoinProposal {
     }
 }
 
-#[uniffi::export]
+#[uniffi::export(with_foreign)]
 pub trait ReceiverPersister: Send + Sync {
-    fn save(&self, receiver: Arc<Receiver>) -> Result<ReceiverToken, ImplementationError>;
-    fn load(&self, token: Arc<ReceiverToken>) -> Result<Receiver, ImplementationError>;
+    fn save(&self, receiver: Arc<Receiver>) -> Arc<ReceiverToken>;
+    fn load(&self, token: Arc<ReceiverToken>) -> Arc<Receiver>;
 }
 
 // The callback to save a receiver and return a token
@@ -525,10 +508,11 @@ impl payjoin::persist::Persister<payjoin::receive::v2::Receiver> for CallbackPer
         receiver: payjoin::receive::v2::Receiver,
     ) -> Result<Self::Token, Self::Error> {
         let receiver = Receiver(super::Receiver::from(receiver));
-        self.callback_persister.save(receiver.into())
+        Ok((*self.callback_persister.save(receiver.into())).clone())
     }
 
     fn load(&self, token: Self::Token) -> Result<payjoin::receive::v2::Receiver, Self::Error> {
-        self.callback_persister.load(token.into()).map(|receiver| receiver.0 .0)
+        let receiver = (*self.callback_persister.load(token.into())).clone().0 .0;
+        Ok(receiver)
     }
 }

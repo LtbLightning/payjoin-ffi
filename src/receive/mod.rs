@@ -7,7 +7,7 @@ pub use error::{
 };
 use payjoin::bitcoin::psbt::Psbt;
 use payjoin::bitcoin::FeeRate;
-use payjoin::persist::Persister;
+use payjoin::persist::{Persister, Value};
 
 use crate::bitcoin_ffi::{Address, OutPoint, Script, TxOut};
 pub use crate::error::SerdeJsonError;
@@ -74,6 +74,35 @@ impl NewReceiver {
     }
 }
 
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
+pub struct ReceiverToken(payjoin::receive::v2::ReceiverToken);
+
+#[cfg_attr(feature = "uniffi", uniffi::export)]
+impl ReceiverToken {
+    pub fn to_string(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl From<ReceiverToken> for payjoin::receive::v2::ReceiverToken {
+    fn from(value: ReceiverToken) -> Self {
+        value.0
+    }
+}
+
+impl From<payjoin::receive::v2::ReceiverToken> for ReceiverToken {
+    fn from(value: payjoin::receive::v2::ReceiverToken) -> Self {
+        Self(value)
+    }
+}
+
+impl From<payjoin::receive::v2::Receiver> for ReceiverToken {
+    fn from(value: payjoin::receive::v2::Receiver) -> Self {
+        ReceiverToken(value.into())
+    }
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Receiver(payjoin::receive::v2::Receiver);
 
@@ -90,6 +119,11 @@ impl From<payjoin::receive::v2::Receiver> for Receiver {
 }
 
 impl Receiver {
+    /// Identifies the receiver
+    pub fn key(&self) -> ReceiverToken {
+        ReceiverToken(self.0.key())
+    }
+
     /// Loads a [`Receiver`] from the provided persister using the storage token.
     pub fn load<P: Persister<payjoin::receive::v2::Receiver>>(
         token: P::Token,

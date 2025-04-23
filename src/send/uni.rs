@@ -1,5 +1,8 @@
 use std::sync::Arc;
 
+use payjoin::persist::Value;
+
+use super::SenderToken;
 pub use crate::send::{
     BuildSenderError, CreateRequestError, EncapsulationError, ResponseError, SerdeJsonError,
 };
@@ -128,6 +131,16 @@ impl From<Sender> for super::Sender {
 
 #[uniffi::export]
 impl Sender {
+    #[uniffi::constructor]
+    pub fn load(token: Arc<SenderToken>, persister: Arc<dyn SenderPersister>) -> Self {
+        let sender = persister.load(token);
+        super::Sender::from((*sender).0.clone()).into()
+    }
+
+    pub fn key(&self) -> SenderToken {
+        SenderToken(self.0 .0.key())
+    }
+
     pub fn extract_v1(&self) -> RequestV1Context {
         let (req, ctx) = self.0.extract_v1();
         RequestV1Context { request: req, context: Arc::new(ctx.into()) }
@@ -251,10 +264,10 @@ impl V2GetContext {
     }
 }
 
-#[uniffi::export]
+#[uniffi::export(with_foreign)]
 pub trait SenderPersister: Send + Sync {
-    fn save(&self, sender: Arc<Sender>) -> Result<SenderToken, ImplementationError>;
-    fn load(&self, token: Arc<SenderToken>) -> Result<Sender, ImplementationError>;
+    fn save(&self, sender: Arc<Sender>) -> Arc<SenderToken>;
+    fn load(&self, token: Arc<SenderToken>) -> Arc<Sender>;
 }
 
 // The callback to save a sender and return a token
@@ -287,32 +300,12 @@ impl payjoin::persist::Persister<payjoin::send::v2::Sender> for CallbackPersiste
 
     fn save(&mut self, sender: payjoin::send::v2::Sender) -> Result<Self::Token, Self::Error> {
         let sender = Sender(super::Sender::from(sender));
-        self.callback_persister.save(sender.into())
+        Ok((*self.callback_persister.save(sender.into())).clone())
     }
 
     fn load(&self, token: Self::Token) -> Result<payjoin::send::v2::Sender, Self::Error> {
         // Use the callback to load the sender
-        self.callback_persister.load(token.into()).map(|sender| sender.0 .0)
-    }
-}
-
-#[derive(Clone, Debug, uniffi::Object)]
-pub struct SenderToken(payjoin::send::v2::SenderToken);
-
-impl From<SenderToken> for payjoin::send::v2::SenderToken {
-    fn from(value: SenderToken) -> Self {
-        value.0
-    }
-}
-
-impl From<payjoin::send::v2::SenderToken> for SenderToken {
-    fn from(value: payjoin::send::v2::SenderToken) -> Self {
-        Self(value)
-    }
-}
-
-impl From<payjoin::send::v2::Sender> for SenderToken {
-    fn from(value: payjoin::send::v2::Sender) -> Self {
-        SenderToken(value.into())
+        let sender = (*self.callback_persister.load(token.into())).0 .0.clone();
+        Ok(sender)
     }
 }
