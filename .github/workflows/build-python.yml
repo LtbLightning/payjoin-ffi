@@ -19,12 +19,6 @@ jobs:
         include:
           - python: "3.9"
             python_dir: "cp39-cp39"
-          - python: "3.10"
-            python_dir: "cp310-cp310"
-          - python: "3.11"
-            python_dir: "cp311-cp311"
-          - python: "3.12"
-            python_dir: "cp312-cp312"
           - python: "3.13"
             python_dir: "cp313-cp313"
     steps:
