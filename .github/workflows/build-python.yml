@@ -52,8 +52,8 @@ jobs:
       - name: "Run tests"
         run: ${PYBIN}/python -m unittest --verbose test/payjoin_unit_test.py
 
-  build-macos:
-    name: "Build and test macOS"
+  build-macos-x86_64:
+    name: "Build and test macOS x86_64"
     runs-on: macos-13
     defaults:
       run:
@@ -81,10 +81,10 @@ jobs:
       - name: "Use cache"
         uses: Swatinem/rust-cache@v2
 
-      - name: "Generate payjoin-ffi.py and binaries"
-        run: bash ./scripts/generate_macos.sh
+      - name: "Generate payjoin-ffi.py and x86_64 binary"
+        run: bash ./scripts/generate_macos_x86_64.sh
 
-      - name: "Build wheel"
+      - name: "Build x86_64 wheel"
         # Specifying the plat-name argument is necessary to build a wheel with the correct name,
         # see issue BDK#350 for more information
         run: python3 setup.py bdist_wheel --plat-name macosx_11_0_x86_64 --verbose
@@ -92,8 +92,45 @@ jobs:
       - name: "Install wheel"
         run: pip3 install ./dist/*.whl
 
+      - name: "Rename binary for testing"
+        run: |
+          cd src/payjoin
+          mv libpayjoin_ffi_x86_64.dylib libpayjoin_ffi.dylib
+
       - name: "Run tests"
         run: python3 -m unittest --verbose test/payjoin_unit_test.py
+
+  build-macos-arm64:
+    name: "Build and test macOS arm64"
+    runs-on: macos-13
+    defaults:
+      run:
+        working-directory: python
+    strategy:
+      matrix:
+        python:
+          - "3.12"
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: "Install Rust 1.78.0"
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.78.0
+
+      - name: "Install Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: "Use cache"
+        uses: Swatinem/rust-cache@v2
+
+      - name: "Generate payjoin-ffi.py and arm64 binary"
+        run: bash ./scripts/generate_macos_arm64.sh
 
       - name: "Build arm64 wheel"
         run: python3 setup.py bdist_wheel --plat-name macosx_11_0_arm64 --verbose
