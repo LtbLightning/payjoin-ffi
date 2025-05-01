@@ -160,7 +160,7 @@ impl Receiver {
     }
 }
 
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(uniffi::Record)]
 pub struct RequestResponse {
     pub request: Request,
     pub client_response: Arc<ClientResponse>,
