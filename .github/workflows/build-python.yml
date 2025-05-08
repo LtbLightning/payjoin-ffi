@@ -56,7 +56,7 @@ jobs:
         run: ${PYBIN}/pip install ./dist/*.whl
 
       - name: "Run tests"
-        run: ${PYBIN}/python -m unittest --verbose test/payjoin_unit_test.py
+        run: ${PYBIN}/python -m unittest -v
 
   build-macos:
     name: "Build and test macOS"
@@ -99,7 +99,7 @@ jobs:
         run: pip3 install ./dist/*.whl
 
       - name: "Run tests"
-        run: python3 -m unittest --verbose test/payjoin_unit_test.py
+        run: python3 -m unittest -v
 
       - name: "Build arm64 wheel"
         run: python3 setup.py bdist_wheel --plat-name macosx_11_0_arm64 --verbose
