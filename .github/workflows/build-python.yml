@@ -13,6 +13,7 @@ jobs:
       image: quay.io/pypa/manylinux_2_28_x86_64
       options: --volume /var/run/docker.sock:/var/run/docker.sock
       env:
+        REDIS_URL: redis://localhost:6379
         PLAT: manylinux_2_28_x86_64
         PYBIN: "/opt/python/${{ matrix.python_dir }}/bin"
     strategy:
@@ -54,6 +55,24 @@ jobs:
 
       - name: "Generate payjoin-ffi.py and binaries"
         run: PYBIN="/opt/python/${{ matrix.python_dir }}/bin" bash ./scripts/generate_linux.sh
+
+      - name: "Start Redis container"
+        run: |
+          docker run -d --name test-redis -p 6379:6379 redis:7
+
+      - name: "Wait for Redis to be ready"
+        run: |
+          for i in {1..10}; do
+            if docker exec test-redis redis-cli ping | grep -q PONG; then
+              echo "Redis is ready!"
+              break
+            fi
+            echo "Waiting for Redis..."
+            sleep 1
+          done
+
+      - name: "Set Redis URL"
+        run: echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
 
       - name: "Build wheel"
         # Specifying the plat-name argument is necessary to build a wheel with the correct name,
