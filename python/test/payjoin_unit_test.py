@@ -47,67 +47,6 @@ class OutputOwnershipCallback(payjoin.IsOutputKnown):
     def callback(self, outpoint: payjoin.bitcoin.OutPoint):
         return False
 
-
-class TestReceiveModule(unittest.TestCase):
-    def get_proposal_from_test_vector(self) -> payjoin.UncheckedProposal:
-        try:
-            # QueryParams Test Vector from BIP
-            query_params = payjoin.query_params()
-            # OriginalPSBT Test Vector from BIP
-            body = payjoin.parsed_original_psbt()
-
-            # Mimicking the Headers::from_vec() from Rust, assuming it converts the byte array to some header-like object
-            headers = payjoin.Headers.from_vec(body)
-
-            # Call to UncheckedProposal::from_request() from Rust
-            # In Python, you would replace this with the appropriate function call or object instantiation
-            unchecked_proposal = payjoin.UncheckedProposal.from_request(
-                body,
-                query_params,
-                headers,
-            )
-            return unchecked_proposal
-
-        except Exception as e:
-            return f"PayjoinError: {e}"
-
-    def test_get_proposal_from_request(self):
-        try:
-            proposal = self.get_proposal_from_test_vector()
-            print(proposal)
-        except Exception as e:
-            self.fail(e, "OriginalPSBT should be a valid request")
-
-    @unittest.skip("FFI bindings for this function are not working")
-    def test_unchecked_proposal_unlocks_after_checks(self):
-        try:
-            # QueryParams Test Vector from BIP
-            query_params = payjoin.query_params()
-            # OriginalPSBT Test Vector from BIP
-            original_psbt = payjoin.original_psbt()
-            body = list(bytes(original_psbt, "utf-8"))
-            # Mimicking the Headers::from_vec() from Rust, assuming it converts the byte array to some header-like object
-            headers = payjoin.Headers.from_vec(body)
-
-            # Call to UncheckedProposal::from_request() from Rust
-            # In Python, you would replace this with the appropriate function call or object instantiation
-            unchecked_proposal = payjoin.UncheckedProposal.from_request(
-                body,
-                query_params,
-                headers,
-            )
-            proposal = (
-                unchecked_proposal.assume_interactive_receiver()
-                .check_inputs_not_owned(ScriptOwnershipCallback(False))
-                .check_no_mixed_input_scripts()
-                .check_no_inputs_seen_before(OutputOwnershipCallback(False))
-                .identify_receiver_outputs(ScriptOwnershipCallback(True))
-            )
-            # payjoin_proposal = proposal.apply_fee(1)
-            # print(payjoin_proposal.serialize())
-        except Exception as e:
-            self.fail(f"test_unchecked_proposal_unlocks_after_checks exception: {e}")
-
 class InMemoryReceiverPersister(payjoin.payjoin_ffi.ReceiverPersister):
     def __init__(self):
         self.receivers = {}
