@@ -2,8 +2,12 @@ import base64
 from binascii import unhexlify
 import os
 import sys
+import httpx
+import json
 
 from payjoin import *
+from typing import Optional
+import payjoin.bitcoin as bitcoinffi
 
 # The below sys path setting is required to use the 'payjoin' module in the 'src' directory
 # This script is in the 'tests' directory and the 'payjoin' module is in the 'src' directory
@@ -25,177 +29,183 @@ from bitcoin.rpc import Proxy, hexlify_str, JSONRPCError
 
 SelectParams("regtest")
 
+class InMemoryReceiverPersister(ReceiverPersister):
+    def __init__(self):
+        super().__init__()
+        self.receivers = {}
 
-# Function to create and load a wallet if it doesn't already exist
-def create_and_load_wallet(rpc_connection, wallet_name):
-    try:
-        # Try to load the wallet using the _call method
-        rpc_connection._call("loadwallet", wallet_name)
-        print(f"Wallet '{wallet_name}' loaded successfully.")
-    except JSONRPCError as e:
-        # Check if the error code indicates the wallet does not exist
-        if e.error["code"] == -18:  # Wallet not found error code
-            # Create the wallet since it does not exist using the _call method
-            rpc_connection._call("createwallet", wallet_name)
-            print(f"Wallet '{wallet_name}' created and loaded successfully.")
-        elif e.error["code"] == -35:  # Wallet already loaded
-            print(f"Wallet '{wallet_name}' created and loaded successfully.")
+    def save(self, receiver: Receiver) -> ReceiverToken:
+        self.receivers[str(receiver.key())] = receiver.to_json()
 
+        return receiver.key()
 
-# Set up RPC connections
-rpc_user = os.environ.get("RPC_USER", "admin1")
-rpc_password = os.environ.get("RPC_PASSWORD", "123")
-rpc_host = os.environ.get("RPC_HOST", "localhost")
-rpc_port = os.environ.get("RPC_PORT", "18443")
+    def load(self, token: ReceiverToken) -> Receiver:
+        token = str(token)
+        if token not in self.receivers.keys():
+            raise ValueError(f"Token not found: {token}")
+        return Receiver.from_json(self.receivers[token])
 
+class InMemorySenderPersister(SenderPersister):
+    def __init__(self):
+        super().__init__()
+        self.senders = {}
 
-class TestPayjoin(unittest.TestCase):
+    def save(self, sender: Sender) -> SenderToken:
+        self.senders[str(sender.key())] = sender.to_json()
+        return sender.key()
+
+    def load(self, token: SenderToken) -> Sender:
+        token = str(token)
+        if token not in self.senders.keys():
+            raise ValueError(f"Token not found: {token}")
+        return Sender.from_json(self.senders[token])
+
+class TestPayjoin(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
-        # Initialize wallets once before all tests
-        sender_wallet_name = "sender"
-        sender_rpc_url = f"http://{rpc_user}:{rpc_password}@{rpc_host}:{rpc_port}/wallet/{sender_wallet_name}"
-        cls.sender = Proxy(service_url=sender_rpc_url)
-        create_and_load_wallet(cls.sender, sender_wallet_name)
-
-        receiver_wallet_name = "receiver"
-        receiver_rpc_url = f"http://{rpc_user}:{rpc_password}@{rpc_host}:{rpc_port}/wallet/{receiver_wallet_name}"
-        cls.receiver = Proxy(service_url=receiver_rpc_url)
-        create_and_load_wallet(cls.receiver, receiver_wallet_name)
-
-    def test_integration(self):
-        # Generate a new address for the sender
-        sender_address = self.sender.getnewaddress()
-        print(f"\nsender_address: {sender_address}")
-
-        # Generate a new address for the receiver
-        receiver_address = self.receiver.getnewaddress()
-        print(f"\nreceiver_address: {receiver_address}")
-
-        self.sender.generatetoaddress(101, str(sender_address))
-        self.receiver.generatetoaddress(101, str(receiver_address))
-
-        # Fetch and print the balance of the sender address
-        sender_balance = self.sender.getbalance()
-        print(f"Sender address balance: {sender_balance}")
-
-        # Fetch and print the balance of the receiver address
-        receiver_balance = self.receiver.getbalance()
-        print(f"Receiver address balance: {receiver_balance}")
-
-        pj_uri_address = self.receiver.getnewaddress()
-        pj_uri_string = "{}?amount={}&pj=https://example.com".format(
-            f"bitcoin:{str(pj_uri_address)}", 1
-        )
-        prj_uri = Uri.from_str(pj_uri_string).check_pj_supported()
-        print(f"\nprj_uri: {prj_uri.as_string()}")
-        outputs = {}
-        outputs[prj_uri.address()] = prj_uri.amount()
-        pre_processed_psbt = self.sender._call(
-            "walletcreatefundedpsbt",
-            [],
-            outputs,
-            0,
-            {"lockUnspents": True, "feeRate": 0.000020},
-        )["psbt"]
-        processed_psbt_base64 = self.sender._call("walletprocesspsbt", pre_processed_psbt)[
-            "psbt"
-        ]
-        req_ctx = RequestBuilder.from_psbt_and_uri(processed_psbt_base64, prj_uri ).build_with_additional_fee(10000, None, 0, False).extract_v1()
-        req = req_ctx.request
-        ctx = req_ctx.context_v1
-        headers = Headers.from_vec(req.body)
-        # **********************
-        # Inside the Receiver:
-        # this data would transit from one party to another over the network in production
-        response = self.handle_pj_request(
-            req=req,
-            headers=headers,
-            connection=self.receiver,
-        )
-        # this response would be returned as http response to the sender
-
-        # **********************
-        # Inside the Sender:
-        # Sender checks, signs, finalizes, extracts, and broadcasts
-        checked_payjoin_proposal_psbt = ctx.process_response(bytes(response, encoding='utf8'))
-        payjoin_processed_psbt = self.sender._call(
-            "walletprocesspsbt",
-            checked_payjoin_proposal_psbt,
-        )["psbt"]
-
-        payjoin_tx_hex = self.sender._call(
-            "finalizepsbt",
-            payjoin_processed_psbt,
-        )["hex"]
-
-        txid = self.sender._call("sendrawtransaction", payjoin_tx_hex)
-        print(f"\nBroadcast sucessful. Txid: {txid}")
-
-    def handle_pj_request(self, req: Request, headers: Headers, connection: Proxy):
-        proposal = UncheckedProposal.from_request(req.body, req.url.query(), headers)
-        _to_broadcast_in_failure_case = proposal.extract_tx_to_schedule_broadcast()
-        maybe_inputs_owned = proposal.check_broadcast_suitability(None,
-            can_broadcast=MempoolAcceptanceCallback(connection=connection)
-        )
-
-        mixed_inputs_scripts = maybe_inputs_owned.check_inputs_not_owned(
-            ScriptOwnershipCallback(connection)
-        )
-        inputs_seen = mixed_inputs_scripts.check_no_mixed_input_scripts()
-        payjoin = inputs_seen.check_no_inputs_seen_before(
-            OutputOwnershipCallback()
-        ).identify_receiver_outputs(ScriptOwnershipCallback(connection))
-        available_inputs = connection._call("listunspent")
-        candidate_inputs = {
-            int(int(i["amount"] * 100000000)): OutPoint(txid=(str(i["txid"])), vout=i["vout"])
-            for i in available_inputs
-        }
-
-        selected_outpoint = payjoin.try_preserving_privacy(
-            candidate_inputs=candidate_inputs
-        )
-
-        selected_utxo = next(
-            (
-                i
-                for i in available_inputs
-                if i["txid"] == selected_outpoint.txid
-                   and i["vout"] == selected_outpoint.vout
-            ),
-            None,
-        )
-
-        txo_to_contribute = TxOut(
-            value=int(selected_utxo["amount"] * 100000000),
-            script_pubkey=[int(byte) for byte in unhexlify(selected_utxo["scriptPubKey"])]
-        )
-        outpoint_to_contribute = OutPoint(
-            txid=selected_utxo["txid"], vout=int(selected_utxo["vout"])
-        )
-        payjoin.contribute_witness_input(txo_to_contribute, outpoint_to_contribute)
-        payjoin_proposal = payjoin.finalize_proposal(
-            ProcessPartiallySignedTransactionCallBack(connection=connection),
-            1,
-        )
-        psbt = payjoin_proposal.psbt()
-        print(f"\n Receiver's Payjoin proposal PSBT: {psbt}")
-        return psbt
-
-
-class ProcessPartiallySignedTransactionCallBack:
-    def __init__(self, connection: Proxy):
-        self.connection = connection
-
-    def callback(self, psbt: str):
+        cls.env = init_bitcoind_sender_receiver()
+        cls.bitcoind = cls.env.get_bitcoind()
+        cls.receiver = cls.env.get_receiver()
+        cls.sender = cls.env.get_sender()
+ 
+    async def test_integration_v2_to_v2(self):
         try:
-            return  self.connection._call(
-                "walletprocesspsbt", psbt, True, "NONE", False
-            )["psbt"]
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            return None   
+            receiver_address = bitcoinffi.Address(json.loads(self.receiver.call("getnewaddress", [])), bitcoinffi.Network.REGTEST)
+            init_tracing()
+            services = TestServices.initialize()
 
+            services.wait_for_services_ready()
+            directory = services.directory_url()
+            ohttp_keys = services.fetch_ohttp_keys()
+
+            # **********************
+            # Inside the Receiver:
+            new_receiver = NewReceiver(receiver_address, directory.as_string(), ohttp_keys, None)
+            persister = InMemoryReceiverPersister()
+            token = new_receiver.persist(persister)
+            session: Receiver = Receiver.load(token, persister)
+            print(f"session: {session.to_json()}")
+            # Poll receive request
+            ohttp_relay = services.ohttp_relay_url()
+            request: RequestResponse = session.extract_req(ohttp_relay.as_string())
+            agent = httpx.AsyncClient()
+            response = await agent.post(
+                url=request.request.url.as_string(),
+                headers={"Content-Type": request.request.content_type},
+                content=request.request.body
+            )
+            response_body = session.process_res(response.content, request.client_response)
+            # No proposal yet since sender has not responded
+            self.assertIsNone(response_body)
+
+            # **********************
+            # Inside the Sender:
+            # Create a funded PSBT (not broadcasted) to address with amount given in the pj_uri
+            pj_uri = session.pj_uri()
+            psbt = build_sweep_psbt(self.sender, pj_uri)
+            new_sender = SenderBuilder(psbt, pj_uri).build_recommended(1000)
+            persister = InMemorySenderPersister()
+            token = new_sender.persist(persister)
+            req_ctx: Sender = Sender.load(token, persister)
+            request: RequestV2PostContext = req_ctx.extract_v2(ohttp_relay)
+            response = await agent.post(
+                url=request.request.url.as_string(),
+                headers={"Content-Type": request.request.content_type},
+                content=request.request.body
+            )
+            send_ctx: V2GetContext = request.context.process_response(response.content)
+            # POST Original PSBT
+
+            # **********************
+            # Inside the Receiver:
+
+            # GET fallback psbt
+            request: RequestResponse = session.extract_req(ohttp_relay.as_string())
+            response = await agent.post(
+                url=request.request.url.as_string(),
+                headers={"Content-Type": request.request.content_type},
+                content=request.request.body
+            )
+            # POST payjoin
+            proposal = session.process_res(response.content, request.client_response)
+            payjoin_proposal = handle_directory_payjoin_proposal(self.receiver, proposal)
+            request: RequestResponse = payjoin_proposal.extract_req(ohttp_relay.as_string())
+            response = await agent.post(
+                url=request.request.url.as_string(),
+                headers={"Content-Type": request.request.content_type},
+                content=request.request.body
+            )
+            payjoin_proposal.process_res(response.content, request.client_response)
+
+            # **********************
+            # Inside the Sender:
+            # Sender checks, signs, finalizes, extracts, and broadcasts
+            # Replay post fallback to get the response
+            request: RequestOhttpContext = send_ctx.extract_req(ohttp_relay.as_string())
+            response = await agent.post(
+                url=request.request.url.as_string(),
+                headers={"Content-Type": request.request.content_type},
+                content=request.request.body
+            )
+            checked_payjoin_proposal_psbt: Optional[str] = send_ctx.process_response(response.content, request.ohttp_ctx)
+            self.assertIsNotNone(checked_payjoin_proposal_psbt)
+            payjoin_psbt = json.loads(self.sender.call("walletprocesspsbt", [checked_payjoin_proposal_psbt]))["psbt"]
+            final_psbt = json.loads(self.sender.call("finalizepsbt", [payjoin_psbt, json.dumps(False)]))["psbt"]
+            payjoin_tx = bitcoinffi.Psbt.deserialize_base64(final_psbt).extract_tx()
+            self.sender.call("sendrawtransaction", [json.dumps(payjoin_tx.serialize().hex())])
+
+            # Check resulting transaction and balances
+            network_fees = bitcoinffi.Psbt.deserialize_base64(final_psbt).fee().to_btc()
+            # Sender sent the entire value of their utxo to receiver (minus fees)
+            self.assertEqual(len(payjoin_tx.input()), 2);
+            self.assertEqual(len(payjoin_tx.output()), 1);
+            self.assertEqual(float(json.loads(self.receiver.call("getbalances", []))["mine"]["untrusted_pending"]), 100 - network_fees)
+            self.assertEqual(float(self.sender.call("getbalance", [])), 0)
+            return
+        except Exception as e:
+            print("Caught:", e)
+            raise
+
+def handle_directory_payjoin_proposal(receiver: Proxy, proposal: UncheckedProposal) -> PayjoinProposal:
+    maybe_inputs_owned = proposal.check_broadcast_suitability(None, MempoolAcceptanceCallback(receiver))
+    maybe_inputs_seen = maybe_inputs_owned.check_inputs_not_owned(IsScriptOwnedCallback(receiver))
+    outputs_unknown = maybe_inputs_seen.check_no_inputs_seen_before(CheckInputsNotSeenCallback(receiver))
+    wants_outputs = outputs_unknown.identify_receiver_outputs(IsScriptOwnedCallback(receiver))
+    wants_inputs = wants_outputs.commit_outputs()
+    provisional_proposal = wants_inputs.contribute_inputs(get_inputs(receiver)).commit_inputs()
+    return provisional_proposal.finalize_proposal(ProcessPsbtCallback(receiver), 1, 10)
+
+def build_sweep_psbt(sender: Proxy, pj_uri: PjUri) -> bitcoinffi.Psbt:
+    outputs = {}
+    outputs[pj_uri.address()] = 50
+    psbt = json.loads(sender.call(
+        "walletcreatefundedpsbt",
+        [json.dumps([]),
+        json.dumps(outputs),
+        json.dumps(0),
+        json.dumps({"lockUnspents": True, "fee_rate": 10, "subtract_fee_from_outputs": [0]})
+        ]))["psbt"]
+    return json.loads(sender.call("walletprocesspsbt", [psbt, json.dumps(True), json.dumps("ALL"), json.dumps(False)]))["psbt"]
+
+def get_inputs(rpc_connection: Proxy) -> list[InputPair]:
+    utxos = json.loads(rpc_connection.call("listunspent", []))
+    inputs = []
+    for utxo in utxos[:1]:
+        txin = bitcoinffi.TxIn(
+            previous_output=bitcoinffi.OutPoint(txid=utxo["txid"], vout=utxo["vout"]),
+            script_sig=bitcoinffi.Script(bytes()),
+            sequence=0,
+            witness=[]
+        )
+        raw_tx = json.loads(rpc_connection.call("gettransaction", [json.dumps(utxo["txid"]), json.dumps(True), json.dumps(True)]))
+        prev_out = raw_tx["decoded"]["vout"][utxo["vout"]]
+        prev_spk = bitcoinffi.Script(bytes.fromhex(prev_out["scriptPubKey"]["hex"]))
+        prev_amount = bitcoinffi.Amount.from_btc(prev_out["value"])
+        tx_out = bitcoinffi.TxOut(value=prev_amount, script_pubkey=prev_spk)
+        psbt_in = PsbtInput(witness_utxo=tx_out, redeem_script=None, witness_script=None)
+        inputs.append(InputPair(txin=txin, psbtin=psbt_in))
+
+    return inputs
 
 class MempoolAcceptanceCallback(CanBroadcast):
     def __init__(self, connection: Proxy):
@@ -203,34 +213,40 @@ class MempoolAcceptanceCallback(CanBroadcast):
 
     def callback(self, tx):
           try:
-                return self.connection._call("testmempoolaccept", [bytes(tx).hex()])[0][
+                res = json.loads(self.connection.call("testmempoolaccept", [json.dumps([bytes(tx).hex()])]))[0][
                     "allowed"
                 ]
+                return res
           except Exception as e:
             print(f"An error occurred: {e}")
             return None      
 
-
-class OutputOwnershipCallback(IsOutputKnown):
-    def callback(self, outpoint: OutPoint):
-        return False
-
-
-class ScriptOwnershipCallback(IsScriptOwned):
+class IsScriptOwnedCallback(IsScriptOwned):
     def __init__(self, connection: Proxy):
         self.connection = connection
 
     def callback(self, script):
         try:
-            script = CScript(bytes(script))      
-            witness_program = script[2:]   
-            address = P2WPKHBitcoinAddress.from_bytes(0, witness_program)
-            return self.connection._call("getaddressinfo", str(address))["ismine"]
+            address = bitcoinffi.Address.from_script(bitcoinffi.Script(script), bitcoinffi.Network.REGTEST)
+            return json.loads(self.connection.call("getaddressinfo", [str(address)]))["ismine"]
         except Exception as e:
             print(f"An error occurred: {e}")
             return None
 
+class CheckInputsNotSeenCallback(IsOutputKnown):
+    def __init__(self, connection: Proxy):
+        self.connection = connection
 
+    def callback(self, _outpoint):
+        return False
+
+class ProcessPsbtCallback(ProcessPsbt):
+    def __init__(self, connection: Proxy):
+        self.connection = connection
+
+    def callback(self, psbt: str):
+        res = json.loads(self.connection.call("walletprocesspsbt", [psbt])) 
+        return res['psbt']
 
 if __name__ == "__main__":
     unittest.main()
