@@ -11,6 +11,7 @@ jobs:
         working-directory: python
     container:
       image: quay.io/pypa/manylinux_2_28_x86_64
+      options: --volume /var/run/docker.sock:/var/run/docker.sock
       env:
         PLAT: manylinux_2_28_x86_64
         PYBIN: "/opt/python/${{ matrix.python_dir }}/bin"
@@ -30,6 +31,13 @@ jobs:
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
+
+      - name: "Install Docker CLI"
+        run: |
+          yum install -y dnf
+          dnf -y install yum-utils
+          dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+          dnf -y install docker-ce-cli
 
       - name: "Install Rust 1.78.0"
         uses: actions-rs/toolchain@v1
