@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::error::PersistenceError;
+use crate::error::ForeignError;
 pub use crate::send::{
     BuildSenderError, CreateRequestError, EncapsulationError, ResponseError, SerdeJsonError,
 };
@@ -269,8 +269,8 @@ impl V2GetContext {
 
 #[uniffi::export(with_foreign)]
 pub trait SenderPersister: Send + Sync {
-    fn save(&self, sender: Arc<Sender>) -> Result<Arc<SenderToken>, PersistenceError>;
-    fn load(&self, token: Arc<SenderToken>) -> Result<Arc<Sender>, PersistenceError>;
+    fn save(&self, sender: Arc<Sender>) -> Result<Arc<SenderToken>, ForeignError>;
+    fn load(&self, token: Arc<SenderToken>) -> Result<Arc<Sender>, ForeignError>;
 }
 
 // The adapter to use the save and load callbacks
@@ -287,7 +287,7 @@ impl CallbackPersisterAdapter {
 // Implement the Persister trait for the adapter
 impl payjoin::persist::Persister<payjoin::send::v2::Sender> for CallbackPersisterAdapter {
     type Token = SenderToken; // Define the token type
-    type Error = PersistenceError; // Define the error type
+    type Error = ForeignError; // Define the error type
 
     fn save(&mut self, sender: payjoin::send::v2::Sender) -> Result<Self::Token, Self::Error> {
         let sender = Sender(super::Sender::from(sender));
