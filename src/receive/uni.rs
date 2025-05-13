@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use super::InputPair;
 use crate::bitcoin_ffi::{Address, OutPoint, Script, TxOut};
-use crate::error::PersistenceError;
+use crate::error::ForeignError;
 pub use crate::receive::{
     Error, ImplementationError, InputContributionError, JsonReply, OutputSubstitutionError,
     ReplyableError, SelectionError, SerdeJsonError, SessionError,
@@ -166,9 +166,9 @@ pub struct RequestResponse {
     pub client_response: Arc<ClientResponse>,
 }
 
-#[uniffi::export]
+#[uniffi::export(with_foreign)]
 pub trait CanBroadcast: Send + Sync {
-    fn callback(&self, tx: Vec<u8>) -> Result<bool, ImplementationError>;
+    fn callback(&self, tx: Vec<u8>) -> Result<bool, ForeignError>;
 }
 
 /// The sender’s original PSBT and optional parameters
@@ -207,7 +207,9 @@ impl UncheckedProposal {
         self.0
             .clone()
             .check_broadcast_suitability(min_fee_rate, |transaction| {
-                can_broadcast.callback(transaction.to_vec())
+                can_broadcast
+                    .callback(transaction.to_vec())
+                    .map_err(|e| ImplementationError::from(e.to_string()))
             })
             .map(|e| Arc::new(e.into()))
     }
@@ -255,9 +257,9 @@ impl From<super::MaybeInputsOwned> for MaybeInputsOwned {
     }
 }
 
-#[uniffi::export]
+#[uniffi::export(with_foreign)]
 pub trait IsScriptOwned: Send + Sync {
-    fn callback(&self, script: Vec<u8>) -> Result<bool, ImplementationError>;
+    fn callback(&self, script: Vec<u8>) -> Result<bool, ForeignError>;
 }
 
 #[uniffi::export]
@@ -269,14 +271,18 @@ impl MaybeInputsOwned {
         is_owned: Arc<dyn IsScriptOwned>,
     ) -> Result<Arc<MaybeInputsSeen>, ReplyableError> {
         self.0
-            .check_inputs_not_owned(|input| is_owned.callback(input.to_vec()))
+            .check_inputs_not_owned(|input| {
+                is_owned
+                    .callback(input.to_vec())
+                    .map_err(|e| ImplementationError::from(e.to_string()))
+            })
             .map(|t| Arc::new(t.into()))
     }
 }
 
-#[uniffi::export]
+#[uniffi::export(with_foreign)]
 pub trait IsOutputKnown: Send + Sync {
-    fn callback(&self, outpoint: OutPoint) -> Result<bool, ImplementationError>;
+    fn callback(&self, outpoint: OutPoint) -> Result<bool, ForeignError>;
 }
 
 /// Typestate to validate that the Original PSBT has no inputs that have been seen before.
@@ -300,7 +306,11 @@ impl MaybeInputsSeen {
     ) -> Result<Arc<OutputsUnknown>, ReplyableError> {
         self.0
             .clone()
-            .check_no_inputs_seen_before(|outpoint| is_known.callback(outpoint.clone()))
+            .check_no_inputs_seen_before(|outpoint| {
+                is_known
+                    .callback(outpoint.clone())
+                    .map_err(|e| ImplementationError::from(e.to_string()))
+            })
             .map(|t| Arc::new(t.into()))
     }
 }
@@ -327,7 +337,9 @@ impl OutputsUnknown {
         self.0
             .clone()
             .identify_receiver_outputs(|output_script| {
-                is_receiver_output.callback(output_script.to_vec())
+                is_receiver_output
+                    .callback(output_script.to_vec())
+                    .map_err(|e| ImplementationError::from(e.to_string()))
             })
             .map(|t| Arc::new(t.into()))
     }
@@ -439,7 +451,11 @@ impl ProvisionalProposal {
     ) -> Result<Arc<PayjoinProposal>, ReplyableError> {
         self.0
             .finalize_proposal(
-                |psbt| process_psbt.callback(psbt.to_string()),
+                |psbt| {
+                    process_psbt
+                        .callback(psbt.to_string())
+                        .map_err(|e| ImplementationError::from(e.to_string()))
+                },
                 min_feerate_sat_per_vb,
                 max_effective_fee_rate_sat_per_vb,
             )
@@ -447,9 +463,9 @@ impl ProvisionalProposal {
     }
 }
 
-#[uniffi::export]
+#[uniffi::export(with_foreign)]
 pub trait ProcessPsbt: Send + Sync {
-    fn callback(&self, psbt: String) -> Result<String, ImplementationError>;
+    fn callback(&self, psbt: String) -> Result<String, ForeignError>;
 }
 
 #[derive(Clone, uniffi::Object)]
@@ -501,8 +517,8 @@ impl PayjoinProposal {
 
 #[uniffi::export(with_foreign)]
 pub trait ReceiverPersister: Send + Sync {
-    fn save(&self, receiver: Arc<Receiver>) -> Result<Arc<ReceiverToken>, PersistenceError>;
-    fn load(&self, token: Arc<ReceiverToken>) -> Result<Arc<Receiver>, PersistenceError>;
+    fn save(&self, receiver: Arc<Receiver>) -> Result<Arc<ReceiverToken>, ForeignError>;
+    fn load(&self, token: Arc<ReceiverToken>) -> Result<Arc<Receiver>, ForeignError>;
 }
 
 /// Adapter for the ReceiverPersister trait to use the save and load callbacks.
@@ -518,7 +534,7 @@ impl CallbackPersisterAdapter {
 
 impl payjoin::persist::Persister<payjoin::receive::v2::Receiver> for CallbackPersisterAdapter {
     type Token = ReceiverToken;
-    type Error = PersistenceError;
+    type Error = ForeignError;
 
     fn save(
         &mut self,
